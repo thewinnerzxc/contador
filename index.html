@@ -5,6 +5,7 @@
   <meta charset="UTF-8" />
   <title>MS — Contador de Actividades</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="robots" content="noindex">
   <link rel="stylesheet" href="./style.css" />
 </head>
 
@@ -12,10 +13,6 @@
   <header>
     <div class="wrap">
       <h1>MS — Contador de Actividades</h1>
-      <p class="muted" style="margin-top:-6px;margin-bottom:8px">
-        Usa esta app desde <b>HTTPS</b> (Netlify) con un navegador compatible (Chrome/Edge escritorio),
-        y elige una carpeta de <b>OneDrive</b> donde vivirá <code>activities.csv</code>.
-      </p>
       <div class="bar">
         <button id="btnConfigDB" class="btn">Configurar Neon DB</button>
         <button id="btnSync" class="btn">Sincronizar</button>
@@ -90,31 +87,9 @@
       </div>
 
       <div class="actions">
-        <!-- 1 -->
-        <div class="row t1">
-          <div class="tag">1) Nueva cuenta creada</div>
-          <div class="email">
-            <label>Email</label>
-            <input id="em1" type="email" placeholder="email@dominio.com" />
-          </div>
-          <div class="wa">
-            <label>WhatsApp</label>
-            <input id="wa1" type="text" placeholder="+51 999 888 777" />
-          </div>
-          <div class="comment">
-            <label>Comentario</label>
-            <input id="co1" type="text" placeholder="Notas breves (opcional)" />
-          </div>
-          <div class="row-btns">
-            <button class="btn primary" id="b1">Agregar</button>
-            <button class="btn small orange" id="findEmail1" title="Buscar por Email">Email</button>
-            <button class="btn small purple" id="findWa1" title="Buscar por WhatsApp">WA</button>
-          </div>
-        </div>
-
-        <!-- 2 -->
+        <!-- 1 (Antes 2) -->
         <div class="row t2">
-          <div class="tag">2) Resuelta su consulta de WhatsApp</div>
+          <div class="tag">1) Resuelta su consulta de WhatsApp</div>
           <div class="email">
             <label>Email</label>
             <input id="em2" type="email" placeholder="email@dominio.com" />
@@ -134,9 +109,9 @@
           </div>
         </div>
 
-        <!-- 3 -->
+        <!-- 2 (Antes 3) -->
         <div class="row t3">
-          <div class="tag">3) Resuelta consulta de Email</div>
+          <div class="tag">2) Resuelta consulta de Email</div>
           <div class="email">
             <label>Email</label>
             <input id="em3" type="email" placeholder="email@dominio.com" />
@@ -231,6 +206,15 @@
       <input type="file" id="csvUpload" accept=".csv" class="btn" />
       <button id="btnMigrateCsv" class="btn warn">Subir a DB</button>
     </div>
+  </dialog>
+
+  <!-- Diálogo Auth -->
+  <dialog id="dlgAuth" class="dialog" style="text-align:center;">
+    <h3>Acceso Restringido</h3>
+    <p>Ingresa el PIN de acceso:</p>
+    <input type="password" id="authPin" placeholder="PIN"
+      style="font-size:1.5rem; text-align:center; width:120px; margin:10px auto; display:block;" />
+    <button id="btnAuth" class="btn primary">Ingresar</button>
   </dialog>
 
   <script type="module" src="./app.js"></script>

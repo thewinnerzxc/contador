@@ -33,6 +33,7 @@ const supportsFSA =
 const isHttps = location.protocol === 'https:';
 
 // UI refs
+// UI refs
 const dbStatus = $('#dbStatus');
 const status = $('#status');
 const counters = { 1: $('#c1'), 2: $('#c2'), 3: $('#c3'), t: $('#ct') };
@@ -48,6 +49,11 @@ const configSave = $('#configSave');
 const configCancel = $('#configCancel');
 const btnMigrateCsv = $('#btnMigrateCsv');
 const csvUpload = $('#csvUpload');
+
+// Auth refs
+const dlgAuth = $('#dlgAuth');
+const authPin = $('#authPin');
+const btnAuth = $('#btnAuth');
 
 const tbody = $('#tbody');
 const thDate = $('#thDate');
@@ -66,6 +72,30 @@ let sortDesc = true;         // por fecha desc
 let mapEmailToWa = new Map();
 let mapWaToEmail = new Map();
 let lastPickedWaEl = null;   // último número WA resaltado en la tabla
+
+// ================== Auth Logic ==================
+function checkAuth() {
+  if (sessionStorage.getItem('ms_auth') === 'ok') {
+    dlgAuth.close();
+    return;
+  }
+  dlgAuth.showModal();
+}
+
+btnAuth?.addEventListener('click', () => {
+  if (authPin.value === '4147') {
+    sessionStorage.setItem('ms_auth', 'ok');
+    dlgAuth.close();
+  } else {
+    alert('PIN incorrecto');
+    authPin.value = '';
+    authPin.focus();
+  }
+});
+
+authPin?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') btnAuth.click();
+});
 
 // ================== Utils ==================
 function nowStr() {
@@ -112,14 +142,13 @@ function setDbUI(ok, note = '') {
 
 // Normalizaciones base
 const TYPES = {
-  1: 'Nueva cuenta creada',
   2: 'Resuelta su consulta de WhatsApp',
   3: 'Resuelta consulta de Email'
 };
 const KIND_BY_LABEL = label =>
-  label === TYPES[1] ? 1
-    : label === TYPES[2] ? 2
-      : 3;
+  label === TYPES[2] ? 2
+    : label === TYPES[3] ? 3
+      : 2; // fallback a WhatsApp
 
 const cleanEmail = s => (s || '').trim().toLowerCase();
 
@@ -204,7 +233,7 @@ function sanitizeRow(r, idx) {
   const out = {
     id: Number.isFinite(+r.id) ? +r.id : (idx + 1),
     fecha: String(r.fecha || ''),
-    tipo: r.tipo && [TYPES[1], TYPES[2], TYPES[3]].includes(r.tipo)
+    tipo: r.tipo && [TYPES[2], TYPES[3]].includes(r.tipo)
       ? r.tipo
       : (r.tipo || ''),
     email: (r.email || '').trim(),
@@ -224,9 +253,8 @@ function sanitizeRow(r, idx) {
   // Tipo: si vino vacío, infiere por keywords (opcional)
   if (!out.tipo) {
     const t = norm(out.comentario);
-    if (t.includes('whatsapp')) out.tipo = TYPES[2];
-    else if (t.includes('email')) out.tipo = TYPES[3];
-    else out.tipo = TYPES[1];
+    if (t.includes('email')) out.tipo = TYPES[3];
+    else out.tipo = TYPES[2];
   }
   return out;
 }
@@ -348,8 +376,8 @@ function render() {
 
   tbody.innerHTML = list.map((r, i) => {
     const kind = KIND_BY_LABEL(r.tipo);
-    const rowClass = kind === 1 ? 'type-1' : (kind === 2 ? 'type-2' : 'type-3');
-    const selClass = kind === 1 ? 't1' : (kind === 2 ? 't2' : 't3');
+    const rowClass = kind === 2 ? 'type-2' : 'type-3';
+    const selClass = kind === 2 ? 't2' : 't3';
     const nDesc = total - i;
 
     const emailHtml = r.email
@@ -369,7 +397,6 @@ function render() {
         <td><span class="muted">${r.fecha}</span></td>
         <td>
           <select class="typeSel ${selClass}" data-id="${r.id}">
-            <option value="1" ${kind === 1 ? 'selected' : ''}>${esc(TYPES[1])}</option>
             <option value="2" ${kind === 2 ? 'selected' : ''}>${esc(TYPES[2])}</option>
             <option value="3" ${kind === 3 ? 'selected' : ''}>${esc(TYPES[3])}</option>
           </select>
@@ -459,10 +486,8 @@ function render() {
   // === Contadores: SOLO HOY (zona Lima) ===
   const today = ymdLima();
   const todayRows = rows.filter(r => (r.fecha || '').slice(0, 10) === today);
-  const c1 = todayRows.filter(r => r.tipo === TYPES[1]).length;
   const c2 = todayRows.filter(r => r.tipo === TYPES[2]).length;
   const c3 = todayRows.filter(r => r.tipo === TYPES[3]).length;
-  counters[1].textContent = c1;
   counters[2].textContent = c2;
   counters[3].textContent = c3;
   counters.t.textContent = todayRows.length;
@@ -531,10 +556,6 @@ function bindFormEnhancements(k) {
 // ======== Fin autocompletado ========
 
 // Eventos: altas
-$('#b1').addEventListener('click', () => {
-  addActivity(1, $('#em1').value, $('#wa1').value, $('#co1').value);
-  markAdded($('#b1'));
-});
 $('#b2').addEventListener('click', () => {
   addActivity(2, $('#em2').value, $('#wa2').value, $('#co2').value);
   markAdded($('#b2'));
@@ -543,7 +564,6 @@ $('#b3').addEventListener('click', () => {
   addActivity(3, $('#em3').value, $('#wa3').value, $('#co3').value);
   markAdded($('#b3'));
 });
-bindFormEnhancements(1);
 bindFormEnhancements(2);
 bindFormEnhancements(3);
 
@@ -562,7 +582,6 @@ function bindEnter(kind, btnSel) {
     });
   });
 }
-bindEnter(1, '#b1');
 bindEnter(2, '#b2');
 bindEnter(3, '#b3');
 
@@ -965,6 +984,7 @@ function normalizeAndRender() {
 
 // ================== Init ==================
 (async function init() {
+  checkAuth();
   // 1) Cargar localStorage
   rows = (loadLocal() || []).map((r, i) => {
     // migraciones antiguas (boolean estado, WA sucia)
