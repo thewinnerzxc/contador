@@ -956,19 +956,31 @@ notesArea.addEventListener('input', saveNotesDebounced());
 async function reloadFromDb(note = 'sincronizado') {
   if (!isDbConnected()) return;
 
+  // Evitar recarga si el usuario está editando
+  if (document.activeElement && document.activeElement.closest('td.editable')) {
+    return;
+  }
+
   try {
     let arr = await fetchAll();
-    // Neon devuelve objetos, no arrays de CSV, pero sanitizeRow espera estructura similar
-    // fetchAll devuelve [{id, fecha, ...}, ...]
     if (Array.isArray(arr)) {
-      arr = arr.map((it, idx) => sanitizeRow(it, idx));
-      rows = arr;
-      setDbUI(true, note);
-      normalizeAndRender();
+      const newRows = arr.map((it, idx) => sanitizeRow(it, idx));
+
+      // Comparación simple para evitar re-render si no hay cambios
+      if (JSON.stringify(newRows) !== JSON.stringify(rows)) {
+        rows = newRows;
+        setDbUI(true, note);
+        normalizeAndRender();
+      } else {
+        // Solo actualizar estado visual sin re-render
+        setDbUI(true, note);
+      }
     } else {
-      rows = [];
-      setDbUI(true, '(vacío)');
-      normalizeAndRender();
+      if (rows.length > 0) {
+        rows = [];
+        setDbUI(true, '(vacío)');
+        normalizeAndRender();
+      }
     }
   } catch (e) {
     console.error('reloadFromDb error:', e);
@@ -980,6 +992,12 @@ async function reloadFromDb(note = 'sincronizado') {
 function normalizeAndRender() {
   rows = rows.map((r, i) => sanitizeRow(r, i));
   saveLocal(); buildDir(); render();
+}
+
+function startAutoSync() {
+  setInterval(() => {
+    reloadFromDb('auto-sync');
+  }, 5000); // 5 segundos
 }
 
 // ================== Init ==================
@@ -1014,6 +1032,7 @@ function normalizeAndRender() {
     if (ok) {
       setDbUI(true, 'Conectado auto');
       await reloadFromDb();
+      startAutoSync(); // Iniciar polling
     } else {
       setDbUI(false, 'Error conexión');
     }
