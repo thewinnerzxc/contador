@@ -17,6 +17,15 @@ import {
 const $ = s => document.querySelector(s);
 
 window.onerror = function (msg, url, line, col, error) {
+  // Ignorar errores de conexión de Neon/WebSocket que son esperables en polling
+  if (msg && (
+    msg.includes('Connection terminated') ||
+    msg.includes('WebSocket') ||
+    msg.includes('network')
+  )) {
+    console.warn('Ignored connection error:', msg);
+    return true; // Suppress alert
+  }
   alert('Error en el script:\n' + msg + '\nLínea: ' + line);
   return false;
 };
@@ -983,8 +992,13 @@ async function reloadFromDb(note = 'sincronizado') {
       }
     }
   } catch (e) {
-    console.error('reloadFromDb error:', e);
-    setStatus('Error al leer de Neon DB: ' + e.message, false);
+    // Si es auto-sync, no molestar al usuario con alertas visuales
+    if (note === 'auto-sync') {
+      console.warn('Auto-sync error (silenced):', e);
+    } else {
+      console.error('reloadFromDb error:', e);
+      setStatus('Error al leer de Neon DB: ' + e.message, false);
+    }
   }
 }
 
