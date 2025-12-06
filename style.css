@@ -760,6 +760,12 @@ dialog::backdrop {
   outline: none;
 }
 
+/* Ocultar app mientras se pide clave */
+#dlgAuth::backdrop {
+  background: var(--bg);
+  opacity: 1;
+}
+
 /* Mobile adjustments */
 @media (max-width: 768px) {
   .actions .row {
