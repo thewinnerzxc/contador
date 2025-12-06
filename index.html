@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>MS — Contador de Actividades</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+
+<body class="page-left">
+  <header>
+    <div class="wrap">
+      <h1>MS — Contador de Actividades</h1>
+      <p class="muted" style="margin-top:-6px;margin-bottom:8px">
+        Usa esta app desde <b>HTTPS</b> (Netlify) con un navegador compatible (Chrome/Edge escritorio),
+        y elige una carpeta de <b>OneDrive</b> donde vivirá <code>activities.csv</code>.
+      </p>
+      <div class="bar">
+        <button id="btnConfigDB" class="btn">Configurar Neon DB</button>
+        <button id="btnSync" class="btn">Sincronizar</button>
+
+        <button id="downloadCSV" class="btn">Descargar CSV (Backup)</button>
+        <button id="clearAll" class="btn">Limpiar todo</button>
+        <button id="btnBulk" class="btn warn">Bulk import</button>
+        <span id="dbStatus" class="pill">DB: —</span>
+      </div>
+      <div class="summary">
+        <div class="card">
+          <div class="k">Nueva cuenta creada</div>
+          <div class="v" id="c1">0</div>
+        </div>
+        <div class="card">
+          <div class="k">Consulta WhatsApp resuelta</div>
+          <div class="v" id="c2">0</div>
+        </div>
+        <div class="card">
+          <div class="k">Consulta Email resuelta</div>
+          <div class="v" id="c3">0</div>
+        </div>
+        <div class="card">
+          <div class="k">Total registrados</div>
+          <div class="v" id="ct">0</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Layout con barra izquierda (Notas) -->
+  <main class="wrap layout">
+    <!-- Lateral izquierda -->
+    <aside class="side">
+      <div class="card">
+        <h3>📝 Notas rápidas</h3>
+        <textarea id="quickNotes" rows="14" placeholder="Escribe aquí tus apuntes, tareas, pendientes…"></textarea>
+        <div id="notesStatus" class="muted">—</div>
+
+        <!-- separador visual -->
+        <hr class="sep" />
+
+        <!-- Herramienta: Generador de link de WhatsApp -->
+        <div class="wa-tools">
+          <label for="waQuick" class="wa-title">Link rápido de WhatsApp</label>
+          <input id="waQuick" class="wa-input" type="text" placeholder="+966 59 388 0414 o 966593880414" />
+          <div class="wa-actions">
+            <button id="waCopy" class="btn pill btn-wa-copy" title="Copiar link">
+              Copiar link
+            </button>
+            <button id="waOpen" class="btn pill btn-wa-open" title="Abrir en nueva pestaña">
+              Abrir
+            </button>
+            <button id="waClear" class="btn pill" title="Limpiar campo">
+              Clear
+            </button>
+          </div>
+          <p class="muted" style="margin-top:6px;font-size:.8rem">
+            Tip: al hacer clic en un WhatsApp de la tabla, se copia el número y se prepara
+            el link aquí.
+          </p>
+        </div>
+        <!-- /WhatsApp tools -->
+      </div>
+    </aside>
+
+    <!-- Columna principal -->
+    <section class="content">
+      <div class="sectionbar">
+        <h2 class="h2">Registrar actividad</h2>
+        <button id="clearForms" class="btn ghost">Clear</button>
+      </div>
+
+      <div class="actions">
+        <!-- 1 -->
+        <div class="row t1">
+          <div class="tag">1) Nueva cuenta creada</div>
+          <div class="email">
+            <label>Email</label>
+            <input id="em1" type="email" placeholder="email@dominio.com" />
+          </div>
+          <div class="wa">
+            <label>WhatsApp</label>
+            <input id="wa1" type="text" placeholder="+51 999 888 777" />
+          </div>
+          <div class="comment">
+            <label>Comentario</label>
+            <input id="co1" type="text" placeholder="Notas breves (opcional)" />
+          </div>
+          <div class="row-btns">
+            <button class="btn primary" id="b1">Agregar</button>
+            <button class="btn small orange" id="findEmail1" title="Buscar por Email">Email</button>
+            <button class="btn small purple" id="findWa1" title="Buscar por WhatsApp">WA</button>
+          </div>
+        </div>
+
+        <!-- 2 -->
+        <div class="row t2">
+          <div class="tag">2) Resuelta su consulta de WhatsApp</div>
+          <div class="email">
+            <label>Email</label>
+            <input id="em2" type="email" placeholder="email@dominio.com" />
+          </div>
+          <div class="wa">
+            <label>WhatsApp</label>
+            <input id="wa2" type="text" placeholder="+51 999 888 777" />
+          </div>
+          <div class="comment">
+            <label>Comentario</label>
+            <input id="co2" type="text" placeholder="Notas breves (opcional)" />
+          </div>
+          <div class="row-btns">
+            <button class="btn primary" id="b2">Agregar</button>
+            <button class="btn small orange" id="findEmail2" title="Buscar por Email">Email</button>
+            <button class="btn small purple" id="findWa2" title="Buscar por WhatsApp">WA</button>
+          </div>
+        </div>
+
+        <!-- 3 -->
+        <div class="row t3">
+          <div class="tag">3) Resuelta consulta de Email</div>
+          <div class="email">
+            <label>Email</label>
+            <input id="em3" type="email" placeholder="email@dominio.com" />
+          </div>
+          <div class="wa">
+            <label>WhatsApp</label>
+            <input id="wa3" type="text" placeholder="+51 999 888 777" />
+          </div>
+          <div class="comment">
+            <label>Comentario</label>
+            <input id="co3" type="text" placeholder="Notas breves (opcional)" />
+          </div>
+          <div class="row-btns">
+            <button class="btn primary" id="b3">Agregar</button>
+            <button class="btn small orange" id="findEmail3" title="Buscar por Email">Email</button>
+            <button class="btn small purple" id="findWa3" title="Buscar por WhatsApp">WA</button>
+          </div>
+        </div>
+      </div>
+
+      <h2 class="h2">Registros</h2>
+      <div class="searchbar">
+        <input id="q" type="text" placeholder="Buscar en tabla… (tipo, email, whatsapp, comentario)" />
+        <select id="stateSel" class="btn">
+          <option value="all" selected>Todos</option>
+          <option value="pending">Pendientes</option>
+          <option value="done">Completados</option>
+        </select>
+        <button id="clearQ" class="btn">Clear</button>
+      </div>
+
+      <div class="card p0" id="tableCard">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:60px;">#</th>
+              <th id="thDate" class="thclick">Fecha ▼</th>
+              <th>Tipo</th>
+              <th>Email</th>
+              <th>WhatsApp</th>
+              <th>Estado</th>
+              <th>Comentario</th>
+              <th style="width:1%;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    <div class="footerbar">
+      <button id="saveNow" class="btn">Guardar ahora</button>
+      <span class="status pill" id="status">Listo.</span>
+    </div>
+  </footer>
+
+  <!-- Diálogo Bulk import -->
+  <dialog id="dlgBulk" class="dialog">
+    <h3>Bulk import (email, whatsapp)</h3>
+    <p class="muted">
+      Una fila por contacto. Separador: <b>coma</b> o <b>tab</b>. Ejemplos:<br />
+      <code>correo@dominio.com, +51 999 888 777</code>
+    </p>
+    <textarea id="bulkText" rows="10" placeholder="email, whatsapp&#10;email2@dominio.com, +51 900 000 000"></textarea>
+    <div class="actions-end">
+      <button id="bulkCancel" class="btn">Cancelar</button>
+      <button id="bulkImport" class="btn primary">Importar</button>
+    </div>
+  </dialog>
+
+  <!-- Diálogo Config DB -->
+  <dialog id="dlgConfig" class="dialog">
+    <h3>Configurar Neon Database</h3>
+    <p class="muted">
+      Ingresa tu cadena de conexión de Neon (postgres://...).<br />
+      Esto se guardará en tu navegador.
+    </p>
+    <input id="neonUrl" type="password" placeholder="postgres://user:pass@endpoint.neon.tech/dbname?sslmode=require"
+      style="width:100%; margin-bottom:10px; padding:8px;">
+    <div class="actions-end">
+      <button id="configCancel" class="btn">Cancelar</button>
+      <button id="configSave" class="btn primary">Guardar y Conectar</button>
+    </div>
+
+    <hr class="sep" style="margin: 15px 0;" />
+
+    <h3>Migrar CSV Local</h3>
+    <p class="muted">Si tienes un archivo <code>activities.csv</code>, súbelo aquí para enviarlo a Neon.</p>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <input type="file" id="csvUpload" accept=".csv" class="btn" />
+      <button id="btnMigrateCsv" class="btn warn">Subir a DB</button>
+    </div>
+  </dialog>
+
+  <script type="module" src="./app.js"></script>
+</body>
+
+</html>
