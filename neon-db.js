@@ -69,6 +69,10 @@ export async function initDB() {
         comentario TEXT
       )
     `);
+        // Schema migration: ensure columns exist for older tables
+        await sql.query(`ALTER TABLE activities ADD COLUMN IF NOT EXISTS email TEXT`);
+        await sql.query(`ALTER TABLE activities ADD COLUMN IF NOT EXISTS whatsapp TEXT`);
+
         // Create notes table
         await sql.query(`CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY, content TEXT)`);
         // Ensure row 1 exists

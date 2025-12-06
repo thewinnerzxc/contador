@@ -737,6 +737,28 @@ btnMigrateCsv?.addEventListener('click', async () => {
     console.error('Error migración:', e);
     alert('Error al migrar: ' + e.message);
   }
+
+});
+
+// Forzar subida de local a DB (reparación)
+$('#btnPushLocal')?.addEventListener('click', async () => {
+  if (!isDbConnected()) {
+    alert('Primero conecta la DB arriba.');
+    return;
+  }
+  const ok = confirm(`¿Seguro que deseas subir ${rows.length} registros locales a Neon DB?\nEsto sobrescribirá los datos en la nube con lo que ves aquí.`);
+  if (!ok) return;
+
+  try {
+    setStatus('Subiendo datos...', true);
+    await bulkUpsert(rows);
+    setStatus('Subida forzada completada', true);
+    alert('Datos subidos correctamente. Ahora otros navegadores deberían ver estos datos al recargar/sincronizar.');
+    dlgConfig.close();
+  } catch (e) {
+    console.error('Error push local:', e);
+    alert('Error al subir: ' + e.message);
+  }
 });
 
 // Botón "Limpiar todo" — borra todas las actividades + sincroniza CSV
