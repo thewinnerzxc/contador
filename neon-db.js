@@ -69,6 +69,11 @@ export async function initDB() {
         comentario TEXT
       )
     `);
+        // Create notes table
+        await sql.query(`CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY, content TEXT)`);
+        // Ensure row 1 exists
+        await sql.query(`INSERT INTO notes (id, content) VALUES (1, '') ON CONFLICT (id) DO NOTHING`);
+
         return true;
     } catch (e) {
         console.error('Error initializing DB:', e);
@@ -81,6 +86,17 @@ export async function fetchAll() {
     const sql = await getClient();
     const res = await sql.query('SELECT * FROM activities ORDER BY id DESC');
     return res.rows;
+}
+
+export async function getNote() {
+    const sql = await getClient();
+    const res = await sql.query('SELECT content FROM notes WHERE id = 1');
+    return res.rows[0]?.content || '';
+}
+
+export async function saveNote(content) {
+    const sql = await getClient();
+    await sql.query('INSERT INTO notes (id, content) VALUES (1, $1) ON CONFLICT (id) DO UPDATE SET content = EXCLUDED.content', [content]);
 }
 
 export async function saveRow(row) {

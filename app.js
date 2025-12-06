@@ -11,7 +11,9 @@ import {
   getConnectionString,
   setConnectionString,
   isDbConnected,
-  bulkUpsert
+  bulkUpsert,
+  getNote,
+  saveNote
 } from './neon-db.js';
 
 const $ = s => document.querySelector(s);
@@ -610,7 +612,7 @@ function markAdded(btn) {
 
 // Clear formularios
 $('#clearForms').addEventListener('click', () => {
-  ['1', '2', '3'].forEach(k => {
+  ['2', '3'].forEach(k => {
     $(`#em${k}`).value = '';
     $(`#wa${k}`).value = '';
     $(`#co${k}`).value = '';
@@ -670,7 +672,19 @@ configSave?.addEventListener('click', async () => {
   if (ok) {
     setDbUI(true, 'Conectado');
     dlgConfig.close();
+
+    // Cargar nota inicial de DB
+    try {
+      const n = await getNote();
+      if (n) {
+        notesArea.value = n;
+        localStorage.setItem(NOTES_KEY, n);
+        notesStatus.textContent = 'Cargado de DB.';
+      }
+    } catch (e) { console.warn('Init note error', e); }
+
     await reloadFromDb();
+    startAutoSync();
   } else {
     setStatus('Error al conectar con Neon', false);
   }
@@ -889,20 +903,28 @@ $('#bulkImport').addEventListener('click', () => {
   setStatus(`Importados: ${ok} · Duplicados: ${dup} · Vacíos: ${bad}`, true);
 });
 
-// ====== Notas rápidas (autosave + guiones) ======
+// ====== Notas rápidas (autosave + DB sync) ======
 const notesArea = $('#quickNotes');
 const notesStatus = $('#notesStatus');
 
-function saveNotes() {
+async function saveNotes() {
+  const txt = notesArea.value || '';
   try {
-    localStorage.setItem(NOTES_KEY, notesArea.value || '');
-    notesStatus.textContent = 'Guardado ' + new Date().toLocaleTimeString();
+    localStorage.setItem(NOTES_KEY, txt);
+    if (isDbConnected()) {
+      await saveNote(txt);
+      notesStatus.textContent = 'Guardado en DB ' + new Date().toLocaleTimeString();
+    } else {
+      notesStatus.textContent = 'Guardado local ' + new Date().toLocaleTimeString();
+    }
   } catch { }
 }
+
 function saveNotesDebounced() {
   clearTimeout(notesArea._t);
-  notesArea._t = setTimeout(saveNotes, 300);
+  notesArea._t = setTimeout(saveNotes, 500);
 }
+
 try {
   notesArea.value = localStorage.getItem(NOTES_KEY) || '';
   notesStatus.textContent = 'Cargado.';
@@ -931,7 +953,8 @@ notesArea.addEventListener('keydown', (e) => {
     const pos = before.length + insert.length;
     ta.setSelectionRange(pos, pos);
 
-    saveNotesDebounced();
+    // Guardar inmediatamente
+    setTimeout(saveNotes, 10);
   }
 });
 notesArea.addEventListener('paste', (e) => {
@@ -958,7 +981,7 @@ notesArea.addEventListener('paste', (e) => {
     saveNotesDebounced();
   }
 });
-notesArea.addEventListener('input', saveNotesDebounced());
+notesArea.addEventListener('input', saveNotesDebounced);
 
 // ====== Recargar CSV desde la conexión actual (carpeta o archivo) ======
 // ====== Recargar desde DB ======
@@ -971,6 +994,19 @@ async function reloadFromDb(note = 'sincronizado') {
   }
 
   try {
+    // 1. Sync Notas (si no está escribiendo en ellas)
+    if (note === 'auto-sync' && document.activeElement !== notesArea) {
+      try {
+        const serverNote = await getNote();
+        if (serverNote !== notesArea.value) {
+          notesArea.value = serverNote;
+          localStorage.setItem(NOTES_KEY, serverNote);
+          notesStatus.textContent = 'Sincronizado ' + new Date().toLocaleTimeString();
+        }
+      } catch (e) { console.warn('Error syncing notes', e); }
+    }
+
+    // 2. Sync Tabla
     let arr = await fetchAll();
     if (Array.isArray(arr)) {
       const newRows = arr.map((it, idx) => sanitizeRow(it, idx));
@@ -1045,6 +1081,17 @@ function startAutoSync() {
     const ok = await initDB();
     if (ok) {
       setDbUI(true, 'Conectado auto');
+
+      // Cargar nota inicial de DB
+      try {
+        const n = await getNote();
+        if (n) {
+          notesArea.value = n;
+          localStorage.setItem(NOTES_KEY, n);
+          notesStatus.textContent = 'Cargado de DB.';
+        }
+      } catch (e) { console.warn('Init note error', e); }
+
       await reloadFromDb();
       startAutoSync(); // Iniciar polling
     } else {
