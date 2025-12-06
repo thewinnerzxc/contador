@@ -12,8 +12,11 @@ import {
   setConnectionString,
   isDbConnected,
   bulkUpsert,
+  bulkUpsert,
   getNote,
-  saveNote
+  saveNote,
+  getContacts,
+  saveContactsBulk
 } from './neon-db.js';
 
 const $ = s => document.querySelector(s);
@@ -918,9 +921,20 @@ $('#bulkImport').addEventListener('click', () => {
     set.set(key, { email, whatsapp: waClean });
     ok++;
   }
+
   const out = [...set.values()];
   savePairs(out);
   buildDir();
+
+  // Guardar en DB si está conectado
+  if (isDbConnected()) {
+    saveContactsBulk(out).then(() => {
+      setStatus('Contactos guardados en DB', true);
+    }).catch(e => {
+      console.error('Error saving contacts bulk:', e);
+    });
+  }
+
   dlgBulk.close();
   setStatus(`Importados: ${ok} · Duplicados: ${dup} · Vacíos: ${bad}`, true);
 });
@@ -1058,6 +1072,29 @@ async function reloadFromDb(note = 'sincronizado') {
       setStatus('Error al leer de Neon DB: ' + e.message, false);
     }
   }
+
+  // 3. Sync Contactos (Dictionary) - Silent
+  try {
+    const contacts = await getContacts();
+    if (contacts && contacts.length) {
+      // Merge con lo local
+      const pairs = loadPairs();
+      const map = new Map();
+      // Prioridad: DB > Local? O mezcla. Mezclamos.
+      pairs.forEach(p => {
+        const k = cleanEmail(p.email) || digitsOnly(p.whatsapp);
+        if (k) map.set(k, p);
+      });
+      contacts.forEach(c => {
+        const k = cleanEmail(c.email) || digitsOnly(c.whatsapp);
+        // Si ya existe, podríamos sobreescribir o ignorar. 
+        // Sobreescribir parece mejor para traer novedades.
+        if (k) map.set(k, { email: c.email || '', whatsapp: c.whatsapp || '' });
+      });
+      savePairs([...map.values()]);
+      buildDir();
+    }
+  } catch (e) { console.warn('Contacts sync error:', e); }
 }
 
 // ====== Normaliza/Parchea después de cargar desde carpeta ======

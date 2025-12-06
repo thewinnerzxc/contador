@@ -75,6 +75,17 @@ export async function initDB() {
 
         // Create notes table
         await sql.query(`CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY, content TEXT)`);
+
+        // Create contacts table (dictionary)
+        await sql.query(`
+            CREATE TABLE IF NOT EXISTS contacts (
+                email TEXT, 
+                whatsapp TEXT,
+                UNIQUE(email, whatsapp)
+            )
+        `);
+
+        // Ensure row 1 exists
         // Ensure row 1 exists
         await sql.query(`INSERT INTO notes (id, content) VALUES (1, '') ON CONFLICT (id) DO NOTHING`);
 
@@ -131,6 +142,28 @@ export async function deleteAll() {
 export async function bulkUpsert(rows) {
     for (const r of rows) {
         await saveRow(r);
+    }
+}
+
+export async function getContacts() {
+    const sql = await getClient();
+    // Obtener todos los contactos (pares email/wa)
+    const res = await sql.query('SELECT email, whatsapp FROM contacts');
+    return res.rows;
+}
+
+export async function saveContactsBulk(pairs) {
+    const sql = await getClient();
+    // Upsert simple: on conflict do nothing (o update si quisiéramos)
+    // Para eficiencia en bulk, lo hacemos en loop o una query grande.
+    // Loop es más seguro para evitar límites de params.
+    for (const p of pairs) {
+        if (!p.email && !p.whatsapp) continue;
+        await sql.query(`
+            INSERT INTO contacts (email, whatsapp)
+            VALUES ($1, $2)
+            ON CONFLICT (email, whatsapp) DO NOTHING
+        `, [p.email || '', p.whatsapp || '']);
     }
 }
 
