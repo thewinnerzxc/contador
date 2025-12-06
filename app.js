@@ -12,7 +12,7 @@ import {
   setConnectionString,
   isDbConnected,
   bulkUpsert,
-  bulkUpsert,
+
   getNote,
   saveNote,
   getContacts,
