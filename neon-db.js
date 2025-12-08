@@ -1,7 +1,8 @@
 let ClientClass = null;
 let client = null;
-// Hardcoded connection string as per user request
-const connectionString = 'postgresql://neondb_owner:npg_XcVmB1shATv7@ep-solitary-cake-adastd8n-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+import { connectionString } from './config.js';
+// Connection string is now loaded from config.js for security
+
 
 async function getClient() {
     if (client) return client;
