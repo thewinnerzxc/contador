@@ -7,3 +7,6 @@ activities.csv
 # Secrets
 config.js
 .env*
+
+# Build output
+public/
