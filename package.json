@@ -1,0 +1,12 @@
+{
+    "name": "contador-actividades",
+    "version": "1.0.0",
+    "description": "Contador de actividades con seguridad DB",
+    "private": true,
+    "scripts": {
+        "build": "node generate-config.js"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC"
+}
