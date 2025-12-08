@@ -14,9 +14,8 @@ const filesToCopy = [
     'style.css',
     'app.js',
     'csv.js',
-    'neon-db.js',
-    'fs.js',
-    'idb.js'
+    'supabase-db.js',
+    'config.js'
 ];
 
 console.log(`📂 Copiando archivos a /${OUTPUT_DIR}...`);
@@ -26,19 +25,7 @@ filesToCopy.forEach(file => {
     }
 });
 
-// 3. Generar config.js dentro de OUTPUT_DIR
-const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
-    console.warn("⚠️  ADVERTENCIA: La variable DATABASE_URL no está definida.");
-}
-
-const content = `// ESTE ARCHIVO ES GENERADO AUTOMÁTICAMENTE
-// NO LO EDITES MANUALMENTE EN PRODUCCIÓN
-
-export const connectionString = '${connectionString || ''}';
-`;
-
-fs.writeFileSync(path.join(OUTPUT_DIR, 'config.js'), content);
+// 3. (Eliminado) No generar config.js dinámicamente, usar el estático copiado arriba.
+console.log("✅ Build completado: Archivos copiados a /public.");
 
 console.log("✅ Build completado: Archivos copiados y config.js generado en /public.");
