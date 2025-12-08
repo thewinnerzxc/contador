@@ -339,7 +339,7 @@ function addActivity(kind, email, whatsapp, comment) {
     tipo: TYPES[kind],
     email: (email || '').trim(),
     whatsapp: digitsOnly(whatsapp),
-    estado: true,                // por defecto: completado
+    estado: false,               // por defecto: pendiente (rojo)
     comentario: (comment || '').trim()
   };
   rows.push(item);
