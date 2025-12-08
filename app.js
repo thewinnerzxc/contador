@@ -147,13 +147,15 @@ function setDbUI(ok, note = '') {
 
 // Normalizaciones base
 const TYPES = {
-  2: 'Resuelta su consulta de WhatsApp',
-  3: 'Resuelta consulta de Email'
+  2: 'WhatsApp',
+  3: 'Email'
 };
-const KIND_BY_LABEL = label =>
-  label === TYPES[2] ? 2
-    : label === TYPES[3] ? 3
-      : 2; // fallback a WhatsApp
+const KIND_BY_LABEL = label => {
+  const l = (label || '').trim();
+  if (l === 'Resuelta consulta de Email' || l === TYPES[3]) return 3;
+  if (l === 'Resuelta su consulta de WhatsApp' || l === TYPES[2]) return 2;
+  return 2; // fallback a WhatsApp
+};
 
 const cleanEmail = s => (s || '').trim().toLowerCase();
 
@@ -316,6 +318,8 @@ function getFilteredSorted() {
 
   if (filterState === 'pending') list = list.filter(r => !r.estado);
   else if (filterState === 'done') list = list.filter(r => r.estado);
+  else if (filterState === 'whatsapp') list = list.filter(r => KIND_BY_LABEL(r.tipo) === 2);
+  else if (filterState === 'email') list = list.filter(r => KIND_BY_LABEL(r.tipo) === 3);
 
   return [...list].sort((a, b) => {
     const fa = String(a.fecha || '');
@@ -636,6 +640,21 @@ qInp.addEventListener('paste', (e) => {
     e.preventDefault();
     qInp.setRangeText(digitsOnly(txt), qInp.selectionStart, qInp.selectionEnd, 'end');
     qInp.dispatchEvent(new Event('input'));
+  }
+});
+
+// Paste button logic
+$('#btnPaste')?.addEventListener('click', async () => {
+  try {
+    const text = await navigator.clipboard.readText();
+    if (text) {
+      qInp.value = text;
+      qInp.dispatchEvent(new Event('input'));
+      qInp.focus();
+    }
+  } catch (err) {
+    console.error('Clipboard paste failed:', err);
+    alert('No se pudo acceder al portapapeles. Da permiso o usa Ctrl+V.');
   }
 });
 
