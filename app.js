@@ -78,6 +78,16 @@ let mapEmailToWa = new Map();
 let mapWaToEmail = new Map();
 let lastPickedWaEl = null;   // último número WA resaltado en la tabla
 
+// -- Pagination & Sync vars --
+let currentPage = 1;
+const itemsPerPage = 50;
+let lastLocalInteractionTime = 0; // timestamp para evitar sobrescritura cloud
+const SYNC_GRACE_PERIOD = 5000;   // ms a esperar tras interacción local
+
+function markLocalInteraction() {
+  lastLocalInteractionTime = Date.now();
+}
+
 // ================== Auth Logic ==================
 function checkAuth() {
   if (sessionStorage.getItem('ms_auth') === 'ok') {
@@ -347,6 +357,7 @@ function addActivity(kind, email, whatsapp, comment) {
     comentario: (comment || '').trim()
   };
   rows.push(item);
+  markLocalInteraction(); // <---
   saveLocal(); buildDir(); render();
   if (isDbConnected()) {
     saveRow(item).then(() => {
@@ -374,20 +385,36 @@ function updateField(id, field, value) {
   const v = (field === 'whatsapp') ? digitsOnly(value) : value;
   r[field] = v;
   r.fecha = nowStr();
+  markLocalInteraction(); // <---
   saveLocal(); buildDir(); render();
   if (isDbConnected()) saveRow(r).then(() => setDbUI(true, 'actualizado'));
 }
 
-// ================== Render ==================
+// ================== Render (con Paginación) ==================
 function render() {
   const list = getFilteredSorted();
-  const total = list.length;
+  const totalItems = list.length;
 
-  tbody.innerHTML = list.map((r, i) => {
+  // Calcular páginas
+  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+
+  // Slice data
+  const startIdx = (currentPage - 1) * itemsPerPage;
+  const endIdx = startIdx + itemsPerPage;
+  const pageItems = list.slice(startIdx, endIdx);
+
+  tbody.innerHTML = pageItems.map((r, i) => {
+    // Nota: 'i' es índice relativo a la página. 
+    // Para el contador global (descendente), usamos el índice real en 'list'
+    // El índice real es startIdx + i
+    const realIdx = startIdx + i;
+    const nDesc = totalItems - realIdx;
+
     const kind = KIND_BY_LABEL(r.tipo);
     const rowClass = kind === 2 ? 'type-2' : 'type-3';
     const selClass = kind === 2 ? 't2' : 't3';
-    const nDesc = total - i;
 
     const emailHtml = r.email
       ? `<span class="copy-mail" data-email="${esc(r.email)}" title="Copiar email">${esc(r.email)}</span>`
@@ -424,6 +451,9 @@ function render() {
     `;
   }).join('');
 
+  // Render controles paginación
+  renderPaginationControls(totalPages, totalItems);
+
   // Copiar email al click
   tbody.querySelectorAll('.copy-mail').forEach(el => {
     el.addEventListener('click', async () => {
@@ -451,6 +481,7 @@ function render() {
     btn.addEventListener('click', () => {
       const id = +btn.dataset.del;
       rows = rows.filter(r => r.id !== id);
+      markLocalInteraction(); // <---
       saveLocal(); buildDir(); render();
       if (isDbConnected()) deleteRow(id).then(() => setDbUI(true, 'eliminado'));
       setStatus('Fila eliminada', true);
@@ -506,6 +537,31 @@ function render() {
   if (cDoneEl) cDoneEl.textContent = rows.filter(r => r.estado).length;
 
   thDate.textContent = sortDesc ? 'Fecha ▼' : 'Fecha ▲';
+}
+
+function renderPaginationControls(totalPages, totalItems) {
+  const container = $('#pagination');
+  if (!container) return;
+
+  if (totalPages <= 1 && totalItems < itemsPerPage) {
+    container.style.display = 'none';
+    return;
+  }
+
+  container.style.display = 'flex';
+  container.innerHTML = `
+    <button class="btn" id="pgPrev" ${currentPage === 1 ? 'disabled' : ''}>Prev</button>
+    <span>Página ${currentPage} de ${totalPages} (${totalItems} items)</span>
+    <button class="btn" id="pgNext" ${currentPage === totalPages ? 'disabled' : ''}>Next</button>
+  `;
+
+  $('#pgPrev')?.addEventListener('click', () => {
+    if (currentPage > 1) { currentPage--; render(); }
+  });
+
+  $('#pgNext')?.addEventListener('click', () => {
+    if (currentPage < totalPages) { currentPage++; render(); }
+  });
 }
 
 // ======== Autocompletado cruzado (historial + import) ========
@@ -631,7 +687,11 @@ qInp.addEventListener('input', (e) => {
     }
   }
   clearTimeout(t);
-  t = setTimeout(() => { q = qInp.value || ''; render(); }, 80);
+  t = setTimeout(() => {
+    q = qInp.value || '';
+    currentPage = 1; // reset page on search
+    render();
+  }, 80);
 });
 
 qInp.addEventListener('paste', (e) => {
@@ -658,7 +718,7 @@ $('#btnPaste')?.addEventListener('click', async () => {
   }
 });
 
-$('#clearQ').addEventListener('click', () => { q = ''; qInp.value = ''; render(); });
+$('#clearQ').addEventListener('click', () => { q = ''; qInp.value = ''; currentPage = 1; render(); });
 
 // Filtro por estado (persistente)
 // Filtro por estado (persistente)
@@ -666,6 +726,7 @@ if (typeof stateSel !== 'undefined' && stateSel) {
   stateSel.addEventListener('change', () => {
     filterState = stateSel.value;
     try { localStorage.setItem(LS_FILTER, filterState); } catch { }
+    currentPage = 1; // reset page on filter change
     render();
   });
 }
@@ -932,6 +993,12 @@ async function reloadFromDb(note = 'sincronizado') {
 
   // Evitar recarga si el usuario está editando
   if (document.activeElement && document.activeElement.closest('td.editable')) {
+    return;
+  }
+
+  // Evitar recarga si hubo interacción local reciente (Fix "edits lost")
+  if (Date.now() - lastLocalInteractionTime < SYNC_GRACE_PERIOD) {
+    if (note !== 'auto-sync') console.warn('Sync skipped due to local activity');
     return;
   }
 
