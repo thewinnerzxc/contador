@@ -1,5 +1,4 @@
-// app.js — CSV robusto (comentarios con comas), estados 2-valores (done|pending),
-// bulk import, autocompletado cruzado, búsqueda y herramientas WA.
+// billera, autocompletado cruzado, búsqueda y herramientas WA.
 
 import { toCSV, parseCSV } from './csv.js';
 import {
@@ -15,7 +14,7 @@ import {
   saveNote,
   getContacts,
   saveContactsBulk
-} from './neon-db.js';
+} from './supabase-db.js';
 
 const $ = s => document.querySelector(s);
 
@@ -151,8 +150,8 @@ function setStatus(msg, ok = true) {
 function setDbUI(ok, note = '') {
   dbStatus.className = 'pill ' + (ok ? 'ok' : '');
   dbStatus.textContent = ok
-    ? `Neon DB: Conectado${note ? ' · ' + note : ''}`
-    : 'Neon DB: Desconectado';
+    ? `DB: Conectado${note ? ' · ' + note : ''}`
+    : 'DB: Desconectado';
 }
 
 // Normalizaciones base
@@ -1108,23 +1107,33 @@ function startAutoSync() {
   render();
 
   // Mensaje inicial según soporte del navegador / contexto
-  // 2) Intentar conectar DB (string hardcoded en neon-db.js)
+  // 2) Intentar conectar DB (Supabase)
   const ok = await initDB();
   if (ok) {
-    setDbUI(true, 'Conectado auto');
+    setDbUI(true, 'Conectado (Supabase)');
 
-    // Cargar nota inicial de DB
+    // Check if DB is empty to Restore/Migrate
     try {
-      const n = await getNote();
-      if (n) {
-        notesArea.value = n;
-        localStorage.setItem(NOTES_KEY, n);
-        notesStatus.textContent = 'Cargado de DB.';
-      }
-    } catch (e) { console.warn('Init note error', e); }
+      const serverRows = await fetchAll();
+      if ((!serverRows || serverRows.length === 0) && rows.length > 0) {
+        // Upload local data to Supabase (Migration)
+        setStatus('Migrando datos locales a Supabase...', true);
+        await bulkUpsert(rows);
 
-    await reloadFromDb();
-    if (typeof startAutoSync === 'function') startAutoSync();
+        const localNote = localStorage.getItem(NOTES_KEY) || '';
+        if (localNote) await saveNote(localNote);
+
+        // Contacts
+        const allPairs = loadPairs();
+        if (allPairs.length) await saveContactsBulk(allPairs);
+
+        setStatus('Migración completada', true);
+      }
+    } catch (e) {
+      console.warn('Migration check failed:', e);
+    }
+
+    startAutoSync();
   } else {
     // Si falla, el propio initDB suele alertar, pero actualizamos UI por si acaso
     setDbUI(false, 'Error conexión (ver consola)');
