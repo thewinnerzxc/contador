@@ -8,8 +8,6 @@ import {
   saveRow,
   deleteRow,
   deleteAll,
-  getConnectionString,
-  setConnectionString,
   isDbConnected,
   bulkUpsert,
 
@@ -55,14 +53,7 @@ const cPendingEl = $('#cPending');
 const cDoneEl = $('#cDone');
 
 const clearAllBtn = $('#clearAll');
-const btnConfigDB = $('#btnConfigDB');
 const btnSync = $('#btnSync');
-const dlgConfig = $('#dlgConfig');
-const neonUrlInp = $('#neonUrl');
-const configSave = $('#configSave');
-const configCancel = $('#configCancel');
-const btnMigrateCsv = $('#btnMigrateCsv');
-const csvUpload = $('#csvUpload');
 
 // Auth refs
 const dlgAuth = $('#dlgAuth');
@@ -651,118 +642,14 @@ qInp.addEventListener('paste', (e) => {
 $('#clearQ').addEventListener('click', () => { q = ''; qInp.value = ''; render(); });
 
 // Filtro por estado (persistente)
-if (stateSel) {
+// Filtro por estado (persistente)
+if (typeof stateSel !== 'undefined' && stateSel) {
   stateSel.addEventListener('change', () => {
     filterState = stateSel.value;
     try { localStorage.setItem(LS_FILTER, filterState); } catch { }
     render();
   });
 }
-
-// CSV & carpeta
-$('#downloadCSV').addEventListener('click', downloadCSV);
-// Config DB
-btnConfigDB?.addEventListener('click', () => {
-  neonUrlInp.value = getConnectionString();
-  dlgConfig.showModal();
-});
-configCancel?.addEventListener('click', () => dlgConfig.close());
-configSave?.addEventListener('click', async () => {
-  const url = neonUrlInp.value.trim();
-  if (!url) return;
-  await setConnectionString(url);
-  const ok = await initDB();
-  if (ok) {
-    setDbUI(true, 'Conectado');
-    dlgConfig.close();
-
-    // Cargar nota inicial de DB
-    try {
-      const n = await getNote();
-      if (n) {
-        notesArea.value = n;
-        localStorage.setItem(NOTES_KEY, n);
-        notesStatus.textContent = 'Cargado de DB.';
-      }
-    } catch (e) { console.warn('Init note error', e); }
-
-    await reloadFromDb();
-    startAutoSync();
-  } else {
-    setStatus('Error al conectar con Neon', false);
-  }
-});
-
-// Sincronizar
-btnSync?.addEventListener('click', async () => {
-  if (!isDbConnected()) {
-    setStatus('Primero configura la DB', false);
-    return;
-  }
-  await reloadFromDb();
-});
-
-// Migrar CSV
-btnMigrateCsv?.addEventListener('click', async () => {
-  if (!isDbConnected()) {
-    alert('Primero conecta la DB arriba.');
-    return;
-  }
-  const file = csvUpload.files[0];
-  if (!file) {
-    alert('Selecciona un archivo .csv primero');
-    return;
-  }
-
-  try {
-    const text = await file.text();
-    const rawRows = parseCSV(text);
-    if (!rawRows.length) {
-      alert('El CSV está vacío o no se pudo leer.');
-      return;
-    }
-
-    // Sanear y convertir
-    const cleanRows = rawRows.map((it, idx) => sanitizeRow(coerceFromAny(it, idx), idx));
-
-    const ok = confirm(`Se encontraron ${cleanRows.length} filas. ¿Subir a Neon DB? (Esto puede tardar unos segundos)`);
-    if (!ok) return;
-
-    setStatus('Subiendo datos...', true);
-    await bulkUpsert(cleanRows);
-    setStatus('Migración completada', true);
-    alert('Migración exitosa. Se recargarán los datos.');
-
-    dlgConfig.close();
-    await reloadFromDb('migrado');
-
-  } catch (e) {
-    console.error('Error migración:', e);
-    alert('Error al migrar: ' + e.message);
-  }
-
-});
-
-// Forzar subida de local a DB (reparación)
-$('#btnPushLocal')?.addEventListener('click', async () => {
-  if (!isDbConnected()) {
-    alert('Primero conecta la DB arriba.');
-    return;
-  }
-  const ok = confirm(`¿Seguro que deseas subir ${rows.length} registros locales a Neon DB?\nEsto sobrescribirá los datos en la nube con lo que ves aquí.`);
-  if (!ok) return;
-
-  try {
-    setStatus('Subiendo datos...', true);
-    await bulkUpsert(rows);
-    setStatus('Subida forzada completada', true);
-    alert('Datos subidos correctamente. Ahora otros navegadores deberían ver estos datos al recargar/sincronizar.');
-    dlgConfig.close();
-  } catch (e) {
-    console.error('Error push local:', e);
-    alert('Error al subir: ' + e.message);
-  }
-});
 
 // Botón "Limpiar todo" — borra todas las actividades + sincroniza CSV
 clearAllBtn?.addEventListener('click', async () => {
@@ -1135,26 +1022,25 @@ function startAutoSync() {
   render();
 
   // Mensaje inicial según soporte del navegador / contexto
-  // 2) Intentar conectar DB si hay string guardado
-  if (getConnectionString()) {
-    const ok = await initDB();
-    if (ok) {
-      setDbUI(true, 'Conectado auto');
+  // 2) Intentar conectar DB (string hardcoded en neon-db.js)
+  const ok = await initDB();
+  if (ok) {
+    setDbUI(true, 'Conectado auto');
 
-      // Cargar nota inicial de DB
-      try {
-        const n = await getNote();
-        if (n) {
-          notesArea.value = n;
-          localStorage.setItem(NOTES_KEY, n);
-          notesStatus.textContent = 'Cargado de DB.';
-        }
-      } catch (e) { console.warn('Init note error', e); }
+    // Cargar nota inicial de DB
+    try {
+      const n = await getNote();
+      if (n) {
+        notesArea.value = n;
+        localStorage.setItem(NOTES_KEY, n);
+        notesStatus.textContent = 'Cargado de DB.';
+      }
+    } catch (e) { console.warn('Init note error', e); }
 
-      await reloadFromDb();
-      startAutoSync(); // Iniciar polling
-    } else {
-      setDbUI(false, 'Error conexión');
-    }
+    await reloadFromDb();
+    if (typeof startAutoSync === 'function') startAutoSync();
+  } else {
+    // Si falla, el propio initDB suele alertar, pero actualizamos UI por si acaso
+    setDbUI(false, 'Error conexión (ver consola)');
   }
 })();

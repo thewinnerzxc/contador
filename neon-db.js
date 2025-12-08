@@ -1,19 +1,7 @@
 let ClientClass = null;
 let client = null;
-let connectionString = localStorage.getItem('ms_neon_url') || '';
-
-export function getConnectionString() {
-    return connectionString;
-}
-
-export async function setConnectionString(url) {
-    connectionString = url;
-    localStorage.setItem('ms_neon_url', url);
-    if (client) {
-        await client.end();
-        client = null;
-    }
-}
+// Hardcoded connection string as per user request
+const connectionString = 'postgresql://neondb_owner:npg_XcVmB1shATv7@ep-solitary-cake-adastd8n-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
 
 async function getClient() {
     if (client) return client;

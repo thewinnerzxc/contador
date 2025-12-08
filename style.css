@@ -1,26 +1,50 @@
 :root {
-  --green: #54b435;
-  --ink: #1f2937;
-  --muted: #6b7280;
-  --bg: #f8fafc;
-  --card: #fff;
-  --line: #e5e7eb;
-  /* Colores por tipo */
-  --t1: #2563eb;
-  --t1bg: #eff6ff;
-  /* Nueva cuenta */
-  --t2: #059669;
-  --t2bg: #ecfdf5;
-  /* WhatsApp resuelta */
-  --t3: #b45309;
-  --t3bg: #fffbeb;
-  /* Email resuelta */
-  /* Acentos morados para selección WA */
-  --violet: #8b5cf6;
-  --violet-600: #7c3aed;
-  --violet-200: #ddd6fe;
-  --violet-100: #ede9fe;
-  --violet-50: #f5f3ff;
+  /* Dark Mode Palette */
+  --bg: #0f172a;
+  /* Slate 900 */
+  --card: #1e293b;
+  /* Slate 800 */
+  --ink: #f1f5f9;
+  /* Slate 100 */
+  --muted: #94a3b8;
+  /* Slate 400 */
+  --line: #334155;
+  /* Slate 700 */
+
+  --input-bg: #0f172a;
+  /* Slate 900 for inputs */
+  --input-border: #475569;
+  /* Slate 600 */
+
+  /* Colores por tipo (Adjusted for dark mode) */
+  --green: #22c55e;
+
+  --t1: #60a5fa;
+  /* Blue 400 */
+  --t1bg: #172554;
+  /* Blue 950 */
+
+  --t2: #34d399;
+  /* Emerald 400 */
+  --t2bg: #064e3b;
+  /* Emerald 900 */
+
+  --t3: #fbbf24;
+  /* Amber 400 */
+  --t3bg: #451a03;
+  /* Amber 950 */
+
+  /* Acentos morados (Adjusted) */
+  --violet: #a78bfa;
+  /* Violet 400 */
+  --violet-600: #c4b5fd;
+  /* Violet 300 (lighter for contrast) */
+  --violet-200: #4c1d95;
+  /* Violet 900 */
+  --violet-100: #2e1065;
+  /* Violet 950 */
+  --violet-50: #1e1b4b;
+  /* Violet 950+ */
 }
 
 * {
@@ -67,11 +91,13 @@ h1 {
 
 .btn {
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--card);
+  color: var(--ink);
   padding: 8px 12px;
   border-radius: 9px;
   cursor: pointer;
   font-weight: 600;
+  transition: background 0.2s, transform 0.1s;
 }
 
 .btn:active {
@@ -90,7 +116,8 @@ h1 {
   gap: 6px;
   padding: 6px 10px;
   border-radius: 999px;
-  background: #f3f4f6;
+  background: #334155;
+  /* Slate 700 */
   font-size: 12px;
 }
 
@@ -99,13 +126,17 @@ h1 {
 }
 
 .ok {
-  color: #065f46;
-  background: #d1fae5;
+  color: #6ee7b7;
+  /* Emerald 300 */
+  background: #064e3b50;
+  border: 1px solid #065f46;
 }
 
 .bad {
-  color: #7f1d1d;
-  background: #fee2e2;
+  color: #fca5a5;
+  /* Red 300 */
+  background: #7f1d1d50;
+  border: 1px solid #7f1d1d;
 }
 
 .summary {
@@ -169,7 +200,8 @@ input[type="text"] {
   padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #fff;
+  background: var(--input-bg);
+  color: var(--ink);
   font: inherit;
 }
 
@@ -185,7 +217,8 @@ input[type="text"] {
   padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #fff;
+  background: var(--input-bg);
+  color: var(--ink);
   font: inherit;
 }
 
@@ -207,7 +240,8 @@ td {
 }
 
 th {
-  background: #f9fafb;
+  background: #1e293b;
+  /* Match card */
   text-align: left;
   font-size: 12px;
   color: var(--muted);
@@ -237,37 +271,41 @@ tbody tr:last-child td {
 }
 
 .badge.t1 {
-  color: #1e3a8a;
+  color: #bfdbfe;
+  /* Light blue */
   background: var(--t1bg);
-  border: 1px solid #bfdbfe;
+  border: 1px solid #1e40af;
 }
 
 .badge.t2 {
-  color: #064e3b;
+  color: #a7f3d0;
+  /* Light emerald */
   background: var(--t2bg);
-  border: 1px solid #a7f3d0;
+  border: 1px solid #065f46;
 }
 
 .badge.t3 {
-  color: #7c2d12;
+  color: #fde68a;
+  /* Light amber */
   background: var(--t3bg);
-  border: 1px solid #fde68a;
+  border: 1px solid #92400e;
 }
 
 /* Acento lateral por tipo */
 tbody tr.type-1 {
-  box-shadow: inset 4px 0 0 0 #93c5fd;
-  background: #fdfefe;
+  box-shadow: inset 4px 0 0 0 var(--t1);
+  background: var(--card);
+  /* Removed explicit light bg */
 }
 
 tbody tr.type-2 {
-  box-shadow: inset 4px 0 0 0 #86efac;
-  background: #fdfefe;
+  box-shadow: inset 4px 0 0 0 var(--t2);
+  background: var(--card);
 }
 
 tbody tr.type-3 {
-  box-shadow: inset 4px 0 0 0 #fcd34d;
-  background: #fefefe;
+  box-shadow: inset 4px 0 0 0 var(--t3);
+  background: var(--card);
 }
 
 footer {
@@ -301,18 +339,18 @@ footer {
 
 /* ===== Colores en secciones de "Registrar actividad" ===== */
 .row.t1 {
-  box-shadow: inset 4px 0 0 0 #93c5fd;
-  background: var(--t1bg);
+  box-shadow: inset 4px 0 0 0 var(--t1);
+  background: #17255450;
 }
 
 .row.t2 {
-  box-shadow: inset 4px 0 0 0 #86efac;
-  background: var(--t2bg);
+  box-shadow: inset 4px 0 0 0 var(--t2);
+  background: #064e3b50;
 }
 
 .row.t3 {
-  box-shadow: inset 4px 0 0 0 #fcd34d;
-  background: var(--t3bg);
+  box-shadow: inset 4px 0 0 0 var(--t3);
+  background: #451a0350;
 }
 
 /* La etiqueta del lado izquierdo como pill, igual a los badges de la tabla */
@@ -327,21 +365,21 @@ footer {
 }
 
 .row.t1 .tag {
-  color: #1e3a8a;
+  color: #bfdbfe;
   background: var(--t1bg);
-  border: 1px solid #bfdbfe;
+  border: 1px solid #1e40af;
 }
 
 .row.t2 .tag {
-  color: #064e3b;
+  color: #a7f3d0;
   background: var(--t2bg);
-  border: 1px solid #a7f3d0;
+  border: 1px solid #065f46;
 }
 
 .row.t3 .tag {
-  color: #7c2d12;
+  color: #fde68a;
   background: var(--t3bg);
-  border: 1px solid #fde68a;
+  border: 1px solid #92400e;
 }
 
 /* Barra título + clear */
@@ -353,7 +391,13 @@ footer {
 }
 
 .btn.ghost {
-  background: #f3f4f6;
+  background: transparent;
+  color: var(--muted);
+}
+
+.btn.ghost:hover {
+  color: var(--ink);
+  background: #334155;
 }
 
 /* Celdas editables */
@@ -362,8 +406,9 @@ td.editable {
 }
 
 td.editable:focus {
-  outline: 2px solid #c7d2fe;
-  background: #eef2ff;
+  outline: 2px solid var(--t1);
+  background: #1e1b4b;
+  /* dark blue selection */
   border-radius: 6px;
 }
 
@@ -381,21 +426,21 @@ select.typeSel {
 }
 
 select.typeSel.t1 {
-  color: #1e3a8a;
+  color: #bfdbfe;
   background: var(--t1bg);
-  border-color: #bfdbfe;
+  border-color: #1e40af;
 }
 
 select.typeSel.t2 {
-  color: #064e3b;
+  color: #a7f3d0;
   background: var(--t2bg);
-  border-color: #a7f3d0;
+  border-color: #065f46;
 }
 
 select.typeSel.t3 {
-  color: #7c2d12;
+  color: #fde68a;
   background: var(--t3bg);
-  border-color: #fde68a;
+  border-color: #92400e;
 }
 
 /* Estado: Toggle Switch */
@@ -431,10 +476,10 @@ select.typeSel.t3 {
   width: 22px;
   left: 2px;
   top: 2px;
-  background: #fff;
+  background: #e2e8f0;
   border-radius: 50%;
   transition: .18s;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, .15);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .3);
 }
 
 .switch input:checked+.slider {
@@ -451,7 +496,7 @@ select.typeSel.t3 {
   background: #6d28d9;
   color: #fff;
   border-color: #6d28d9;
-  box-shadow: 0 0 0 3px #ede9fe inset;
+  box-shadow: 0 0 0 3px #4c1d95 inset;
 }
 
 /* ---- Layout con sidebar ---- */
@@ -471,6 +516,11 @@ select.typeSel.t3 {
   width: 100%;
   min-height: 240px;
   resize: vertical;
+  background: var(--input-bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
 }
 
 /* Botones extra de búsqueda */
@@ -505,7 +555,9 @@ select.typeSel.t3 {
 
 /* Dialog */
 dialog.dialog {
-  border: none;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
   border-radius: 14px;
   padding: 18px;
   max-width: 640px;
@@ -645,8 +697,9 @@ dialog::backdrop {
 .pill-lite {
   padding: 4px 10px;
   border-radius: 999px;
-  background: #f3f4f6;
-  color: #374151;
+  border-radius: 999px;
+  background: #334155;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -681,7 +734,8 @@ dialog::backdrop {
   padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #fff;
+  background: var(--input-bg);
+  color: var(--ink);
   font: inherit;
 }
 
@@ -727,8 +781,8 @@ dialog::backdrop {
 
 .copy-mail.copied,
 .copy-wa.copied {
-  background: #ecfeff;
-  box-shadow: inset 0 -2px 0 #a5f3fc;
+  background: #064e3b;
+  box-shadow: inset 0 -2px 0 #34d399;
   border-radius: 4px;
   transition: background .2s ease;
 }
