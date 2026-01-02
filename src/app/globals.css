@@ -67,10 +67,57 @@ header {
 }
 
 .wrap {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 20px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 20px 40px;
 }
+
+/* ... existing code ... */
+
+/* Specific column widths */
+th:nth-child(1) {
+  width: 50px;
+}
+
+/* # */
+th:nth-child(2) {
+  width: 100px;
+}
+
+/* Fecha */
+th:nth-child(3) {
+  width: 140px;
+}
+
+/* Tipo */
+th:nth-child(4) {
+  width: 220px;
+}
+
+/* Email - increased */
+th:nth-child(5) {
+  width: 140px;
+}
+
+/* WhatsApp */
+th:nth-child(6) {
+  width: 80px;
+}
+
+/* Estado */
+th:nth-child(7) {
+  width: auto;
+  min-width: 200px;
+}
+
+/* Comentario - min width ensures visibility */
+th:nth-child(8) {
+  width: 100px;
+  text-align: right;
+}
+
+/* Acciones */
 
 h1 {
   font-size: 20px;
@@ -140,10 +187,21 @@ h1 {
 }
 
 .summary {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin: 10px 0 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 1200px) {
+  .summary {
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .summary {
+    grid-template-columns: 1fr;
+  }
 }
 
 .card {
@@ -174,15 +232,26 @@ h1 {
   grid-template-columns: 1fr;
 }
 
-.row {
+/* Filas de “Registrar actividad” como grid ordenada */
+.actions .row {
   display: grid;
-  gap: 10px;
+  grid-template-columns: auto minmax(240px, 1fr) minmax(220px, 1fr) minmax(220px, 1fr) auto;
+  gap: 10px 12px;
   align-items: center;
-  grid-template-columns: auto minmax(220px, 1fr) minmax(180px, 1fr) minmax(240px, 1.2fr) auto;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 10px;
+}
+
+.actions .row .tag {
+  align-self: center;
+}
+
+.actions .row .row-btns {
+  display: flex;
+  gap: 6px;
+  align-items: center;
 }
 
 .row label {
@@ -228,20 +297,74 @@ table {
   border-spacing: 0;
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 14px;
   overflow: hidden;
+  table-layout: fixed;
+  /* Fix column widths */
 }
 
 th,
 td {
   padding: 10px 12px;
   border-bottom: 1px solid var(--line);
-  vertical-align: top;
+  vertical-align: middle;
+  /* Better align */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
+/* Allow comments to wrap */
+td:nth-child(7) {
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* Specific column widths */
+th:nth-child(1) {
+  width: 50px;
+}
+
+/* # */
+th:nth-child(2) {
+  width: 100px;
+}
+
+/* Fecha */
+th:nth-child(3) {
+  width: 140px;
+}
+
+/* Tipo */
+th:nth-child(4) {
+  width: 200px;
+}
+
+/* Email */
+th:nth-child(5) {
+  width: 140px;
+}
+
+/* WhatsApp */
+th:nth-child(6) {
+  width: 80px;
+}
+
+/* Estado */
+th:nth-child(7) {
+  width: auto;
+}
+
+/* Comentario (takes remaining space) */
+th:nth-child(8) {
+  width: 100px;
+  text-align: right;
+}
+
+/* Acciones */
 
 th {
   background: #1e293b;
-  /* Match card */
   text-align: left;
   font-size: 12px;
   color: var(--muted);
@@ -295,7 +418,6 @@ tbody tr:last-child td {
 tbody tr.type-1 {
   box-shadow: inset 4px 0 0 0 var(--t1);
   background: var(--card);
-  /* Removed explicit light bg */
 }
 
 tbody tr.type-2 {
@@ -502,14 +624,44 @@ select.typeSel.t3 {
 /* ---- Layout con sidebar ---- */
 .layout {
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
   gap: 16px;
+  align-items: start;
 }
 
 @media (max-width: 1000px) {
   .layout {
     grid-template-columns: 1fr;
   }
+}
+
+.side {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 86px;
+  align-self: start;
+}
+
+.sticky-header {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 60px;
+  /* Adjust based on header height */
+  z-index: 4;
+  background: var(--bg);
+  padding-bottom: 20px;
+  padding-top: 20px;
+  margin-top: 0 !important;
+}
+
+.sticky-header+.actions {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 110px;
+  /* Below the h2 */
+  z-index: 4;
+  background: var(--bg);
+  padding-bottom: 10px;
 }
 
 .side .card textarea {
@@ -521,6 +673,15 @@ select.typeSel.t3 {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 8px;
+}
+
+#quickNotes {
+  font-family: "Aptos", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+  letter-spacing: .1px;
+  white-space: pre-wrap;
+  tab-size: 2;
 }
 
 /* Botones extra de búsqueda */
@@ -595,95 +756,6 @@ dialog::backdrop {
   padding-inline: 18px;
 }
 
-/* ====== Mejor distribución ====== */
-
-/* Cards de métricas en una grilla fluida */
-.summary {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(220px, 1fr));
-  gap: 12px;
-}
-
-@media (max-width: 1200px) {
-  .summary {
-    grid-template-columns: repeat(2, minmax(220px, 1fr));
-  }
-}
-
-@media (max-width: 640px) {
-  .summary {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Layout con sidebar (notas) y contenido */
-.layout {
-  display: grid;
-  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
-  gap: 16px;
-  align-items: start;
-}
-
-/* Notas rápidas sticky para que acompañe al scroll */
-.side {
-  position: sticky;
-  top: 86px;
-}
-
-/* Notas rápidas: tipografía y legibilidad */
-#quickNotes {
-  font-family: "Aptos", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
-  font-size: 16px;
-  line-height: 1.45;
-  letter-spacing: .1px;
-  white-space: pre-wrap;
-  tab-size: 2;
-}
-
-/* Filas de “Registrar actividad” como grid ordenada */
-.actions .row {
-  display: grid;
-  grid-template-columns: 230px minmax(240px, 1fr) 230px minmax(220px, 1fr) auto;
-  gap: 10px 12px;
-  align-items: end;
-}
-
-.actions .row .tag {
-  align-self: center;
-}
-
-.actions .row .row-btns {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-@media (max-width: 1000px) {
-  .actions .row {
-    grid-template-columns: 1fr;
-  }
-
-  .actions .row .row-btns {
-    justify-content: flex-end;
-  }
-}
-
-/* Tabla a ancho completo del contenedor */
-.card.p0,
-.card.p0 table {
-  width: 100%;
-}
-
-/* Pulido visual menor */
-.card {
-  border-radius: 14px;
-}
-
-.h2 {
-  margin-top: 6px;
-}
-
-/* Bloques de resumen (Hoy / Mes) */
 .summary-block {
   margin-top: 10px;
 }
@@ -707,14 +779,12 @@ dialog::backdrop {
 /*      NUEVO: Herramienta de WhatsApp + Copy de emails/WA   */
 /* ========================================================= */
 
-/* Separador fino dentro de cards */
 .card hr.sep {
   border: 0;
   border-top: 1px solid var(--line);
   margin: 12px 0;
 }
 
-/* Contenedor y labels del generador de link */
 .wa-tools,
 .wa-quick {
   margin-top: 10px;
@@ -727,7 +797,6 @@ dialog::backdrop {
   margin-bottom: 6px;
 }
 
-/* Input del generador */
 .wa-input,
 #waQuick {
   width: 100%;
@@ -745,7 +814,6 @@ dialog::backdrop {
   box-shadow: 0 0 0 2px var(--violet-50);
 }
 
-/* Acciones del generador */
 .wa-actions {
   display: flex;
   gap: 8px;
@@ -771,7 +839,6 @@ dialog::backdrop {
   color: #111827;
 }
 
-/* Click-to-copy: email y whatsapp en tabla */
 .copy-mail,
 .copy-wa {
   cursor: pointer;
@@ -787,7 +854,6 @@ dialog::backdrop {
   transition: background .2s ease;
 }
 
-/* Resaltado morado cuando el WA está “seleccionado” */
 #waQuick.picked,
 .wa-input.picked {
   outline: 2px solid var(--violet);
@@ -814,87 +880,7 @@ dialog::backdrop {
   outline: none;
 }
 
-/* Ocultar app mientras se pide clave */
 #dlgAuth::backdrop {
   background: var(--bg);
   opacity: 1;
-}
-
-/* Mobile adjustments */
-@media (max-width: 768px) {
-  .actions .row {
-    grid-template-columns: 1fr !important;
-    gap: 15px;
-    padding: 15px;
-  }
-
-  .actions .row .tag {
-    margin-bottom: 5px;
-  }
-
-  .actions .row .row-btns {
-    justify-content: stretch;
-    margin-top: 5px;
-  }
-
-  .actions .row .row-btns .btn {
-    flex: 1;
-    justify-content: center;
-  }
-
-  .wrap {
-    padding: 10px;
-  }
-
-  .bar {
-    justify-content: center;
-  }
-
-  .summary {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  /* Hide sidebar on mobile initially or stack it */
-  .layout {
-    display: flex;
-    flex-direction: column-reverse;
-  }
-
-  .side {
-    position: static;
-    width: 100%;
-  }
-}
-
-/* Pagination Controls */
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 14px;
-  padding: 10px;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-}
-
-.pagination .btn {
-  min-width: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.pagination span {
-  font-size: 14px;
-  color: var(--muted);
-  font-weight: 600;
-  margin: 0 4px;
-}
-
-.pagination .btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  pointer-events: none;
 }

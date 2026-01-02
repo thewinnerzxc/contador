@@ -1,12 +1,28 @@
 {
-    "name": "contador-actividades",
-    "version": "1.0.0",
-    "description": "Contador de actividades con seguridad DB",
-    "private": true,
-    "scripts": {
-        "build": "node generate-config.js"
-    },
-    "keywords": [],
-    "author": "",
-    "license": "ISC"
+  "name": "contador-actividades",
+  "version": "1.0.0",
+  "description": "Contador de actividades con seguridad DB",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "generate-config": "node generate-config.js",
+    "start": "npm run generate-config && electron .",
+    "build": "npm run generate-config && electron-builder",
+    "build:web": "node generate-config.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "dotenv": "^17.2.3",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.contador.app",
+    "productName": "ContadorDeActividades",
+    "win": {
+      "target": "dir"
+    }
+  }
 }

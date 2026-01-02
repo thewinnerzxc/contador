@@ -1,2 +1,0 @@
-export const supabaseUrl = 'https://orpplvjccokivumdbctw.supabase.co';
-export const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ycHBsdmpjY29raXZ1bWRiY3R3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUyMjQ5NzYsImV4cCI6MjA4MDgwMDk3Nn0.VXtgtmam2virgn6N2ygPPiJ3rhMv0zEZMSL59vwXgcc';

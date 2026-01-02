@@ -22,7 +22,24 @@
         <button id="btnBulk" class="btn warn">Bulk import</button>
         <span id="dbStatus" class="pill">DB: —</span>
       </div>
-
+      <div class="summary">
+        <div class="card">
+          <div class="k">Nueva cuenta creada</div>
+          <div class="v" id="c1">0</div>
+        </div>
+        <div class="card">
+          <div class="k">Consulta WhatsApp resuelta</div>
+          <div class="v" id="c2">0</div>
+        </div>
+        <div class="card">
+          <div class="k">Consulta Email resuelta</div>
+          <div class="v" id="c3">0</div>
+        </div>
+        <div class="card">
+          <div class="k">Total registrados</div>
+          <div class="v" id="ct">0</div>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -117,14 +134,11 @@
 
       <h2 class="h2">Registros</h2>
       <div class="searchbar">
-        <button id="btnPaste" class="btn" title="Pegar del portapapeles" style="margin-right: 4px;">Paste</button>
         <input id="q" type="text" placeholder="Buscar en tabla… (tipo, email, whatsapp, comentario)" />
         <select id="stateSel" class="btn">
           <option value="all" selected>Todos</option>
           <option value="pending">Pendientes</option>
           <option value="done">Completados</option>
-          <option value="whatsapp">WhatsApp</option>
-          <option value="email">Email</option>
         </select>
         <button id="clearQ" class="btn">Clear</button>
       </div>
@@ -146,7 +160,6 @@
           <tbody id="tbody"></tbody>
         </table>
       </div>
-      <div id="pagination" class="pagination" style="display:none;"></div>
     </section>
   </main>
 

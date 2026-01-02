@@ -1,0 +1,24 @@
+<!doctype html><meta charset="utf-8">
+<title>FSA Test</title>
+<button id="dir">Elegir CARPETA</button>
+<button id="open">Abrir CSV</button>
+<button id="save">Guardar CSV</button>
+<pre id="log" style="white-space:pre-wrap;border:1px solid #ccc;padding:8px;margin-top:10px"></pre>
+<script>
+const log = m => (document.getElementById('log').textContent += m + '\n');
+log(`secureContext=${isSecureContext} · origin=${location.origin}`);
+log(`hasDir=${'showDirectoryPicker' in window} · hasOpen=${'showOpenFilePicker' in window} · hasSave=${'showSaveFilePicker' in window}`);
+
+document.getElementById('dir').onclick = async () => {
+  try { const h = await showDirectoryPicker(); log('OK carpeta: ' + (await h.queryPermission?.({mode:'readwrite'}))); }
+  catch(e){ log('DIR error: ' + e.name + ' · ' + e.message); }
+};
+document.getElementById('open').onclick = async () => {
+  try { const [f] = await showOpenFilePicker({types:[{description:'CSV', accept:{'text/csv':['.csv']}}]}); log('OK open: ' + (await f.queryPermission?.({mode:'readwrite'}))); }
+  catch(e){ log('OPEN error: ' + e.name + ' · ' + e.message); }
+};
+document.getElementById('save').onclick = async () => {
+  try { const f = await showSaveFilePicker({suggestedName:'activities.csv',types:[{description:'CSV', accept:{'text/csv':['.csv']}}]}); log('OK save: ' + (await f.queryPermission?.({mode:'readwrite'}))); }
+  catch(e){ log('SAVE error: ' + e.name + ' · ' + e.message); }
+};
+</script>

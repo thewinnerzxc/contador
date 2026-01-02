@@ -1,4 +1,5 @@
-// billera, autocompletado cruzado, búsqueda y herramientas WA.
+// app.js — CSV robusto (comentarios con comas), estados 2-valores (done|pending),
+// bulk import, autocompletado cruzado, búsqueda y herramientas WA.
 
 import { toCSV, parseCSV } from './csv.js';
 import {
@@ -14,7 +15,7 @@ import {
   saveNote,
   getContacts,
   saveContactsBulk
-} from './supabase-db.js';
+} from './neon-db.js';
 
 const $ = s => document.querySelector(s);
 
@@ -47,6 +48,7 @@ const isHttps = location.protocol === 'https:';
 // UI refs
 const dbStatus = $('#dbStatus');
 const status = $('#status');
+const counters = { 1: $('#c1'), 2: $('#c2'), 3: $('#c3'), t: $('#ct') };
 const cPendingEl = $('#cPending');
 const cDoneEl = $('#cDone');
 
@@ -75,16 +77,6 @@ let sortDesc = true;         // por fecha desc
 let mapEmailToWa = new Map();
 let mapWaToEmail = new Map();
 let lastPickedWaEl = null;   // último número WA resaltado en la tabla
-
-// -- Pagination & Sync vars --
-let currentPage = 1;
-const itemsPerPage = 50;
-let lastLocalInteractionTime = 0; // timestamp para evitar sobrescritura cloud
-const SYNC_GRACE_PERIOD = 5000;   // ms a esperar tras interacción local
-
-function markLocalInteraction() {
-  lastLocalInteractionTime = Date.now();
-}
 
 // ================== Auth Logic ==================
 function checkAuth() {
@@ -149,21 +141,19 @@ function setStatus(msg, ok = true) {
 function setDbUI(ok, note = '') {
   dbStatus.className = 'pill ' + (ok ? 'ok' : '');
   dbStatus.textContent = ok
-    ? `DB: Conectado${note ? ' · ' + note : ''}`
-    : 'DB: Desconectado';
+    ? `Neon DB: Conectado${note ? ' · ' + note : ''}`
+    : 'Neon DB: Desconectado';
 }
 
 // Normalizaciones base
 const TYPES = {
-  2: 'WhatsApp',
-  3: 'Email'
+  2: 'Resuelta su consulta de WhatsApp',
+  3: 'Resuelta consulta de Email'
 };
-const KIND_BY_LABEL = label => {
-  const l = (label || '').trim();
-  if (l === 'Resuelta consulta de Email' || l === TYPES[3]) return 3;
-  if (l === 'Resuelta su consulta de WhatsApp' || l === TYPES[2]) return 2;
-  return 2; // fallback a WhatsApp
-};
+const KIND_BY_LABEL = label =>
+  label === TYPES[2] ? 2
+    : label === TYPES[3] ? 3
+      : 2; // fallback a WhatsApp
 
 const cleanEmail = s => (s || '').trim().toLowerCase();
 
@@ -326,8 +316,6 @@ function getFilteredSorted() {
 
   if (filterState === 'pending') list = list.filter(r => !r.estado);
   else if (filterState === 'done') list = list.filter(r => r.estado);
-  else if (filterState === 'whatsapp') list = list.filter(r => KIND_BY_LABEL(r.tipo) === 2);
-  else if (filterState === 'email') list = list.filter(r => KIND_BY_LABEL(r.tipo) === 3);
 
   return [...list].sort((a, b) => {
     const fa = String(a.fecha || '');
@@ -351,21 +339,15 @@ function addActivity(kind, email, whatsapp, comment) {
     tipo: TYPES[kind],
     email: (email || '').trim(),
     whatsapp: digitsOnly(whatsapp),
-    estado: false,               // por defecto: pendiente (rojo)
+    estado: true,                // por defecto: completado
     comentario: (comment || '').trim()
   };
   rows.push(item);
-  markLocalInteraction(); // <---
   saveLocal(); buildDir(); render();
   if (isDbConnected()) {
     saveRow(item).then(() => {
       setDbUI(true, 'guardado');
     });
-    // Guardar contacto si hay datos
-    if (item.email && item.whatsapp) {
-      saveContactsBulk([{ email: item.email, whatsapp: item.whatsapp }])
-        .then(() => console.log('Contacto guardado en Supabase'));
-    }
   }
   setStatus('Actividad registrada', true);
 }
@@ -388,46 +370,20 @@ function updateField(id, field, value) {
   const v = (field === 'whatsapp') ? digitsOnly(value) : value;
   r[field] = v;
   r.fecha = nowStr();
-  markLocalInteraction(); // <---
   saveLocal(); buildDir(); render();
-  if (isDbConnected()) {
-    saveRow(r).then(() => setDbUI(true, 'actualizado'));
-
-    // Si se actualizó email o whatsapp, intentar guardar contacto
-    // Usamos los valores actuales de la fila
-    if ((field === 'email' || field === 'whatsapp') && r.email && r.whatsapp) {
-      saveContactsBulk([{ email: r.email, whatsapp: r.whatsapp }])
-        .catch(err => console.error('Error guardando contacto al editar:', err));
-    }
-  }
+  if (isDbConnected()) saveRow(r).then(() => setDbUI(true, 'actualizado'));
 }
 
-
-// ================== Render (con Paginación) ==================
+// ================== Render ==================
 function render() {
   const list = getFilteredSorted();
-  const totalItems = list.length;
+  const total = list.length;
 
-  // Calcular páginas
-  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
-  if (currentPage > totalPages) currentPage = totalPages;
-  if (currentPage < 1) currentPage = 1;
-
-  // Slice data
-  const startIdx = (currentPage - 1) * itemsPerPage;
-  const endIdx = startIdx + itemsPerPage;
-  const pageItems = list.slice(startIdx, endIdx);
-
-  tbody.innerHTML = pageItems.map((r, i) => {
-    // Nota: 'i' es índice relativo a la página. 
-    // Para el contador global (descendente), usamos el índice real en 'list'
-    // El índice real es startIdx + i
-    const realIdx = startIdx + i;
-    const nDesc = totalItems - realIdx;
-
+  tbody.innerHTML = list.map((r, i) => {
     const kind = KIND_BY_LABEL(r.tipo);
     const rowClass = kind === 2 ? 'type-2' : 'type-3';
     const selClass = kind === 2 ? 't2' : 't3';
+    const nDesc = total - i;
 
     const emailHtml = r.email
       ? `<span class="copy-mail" data-email="${esc(r.email)}" title="Copiar email">${esc(r.email)}</span>`
@@ -464,9 +420,6 @@ function render() {
     `;
   }).join('');
 
-  // Render controles paginación
-  renderPaginationControls(totalPages, totalItems);
-
   // Copiar email al click
   tbody.querySelectorAll('.copy-mail').forEach(el => {
     el.addEventListener('click', async () => {
@@ -494,7 +447,6 @@ function render() {
     btn.addEventListener('click', () => {
       const id = +btn.dataset.del;
       rows = rows.filter(r => r.id !== id);
-      markLocalInteraction(); // <---
       saveLocal(); buildDir(); render();
       if (isDbConnected()) deleteRow(id).then(() => setDbUI(true, 'eliminado'));
       setStatus('Fila eliminada', true);
@@ -537,38 +489,19 @@ function render() {
   });
 
   // === Contadores: SOLO HOY (zona Lima) ===
-  // (Removido por solicitud del usuario)
+  const today = ymdLima();
+  const todayRows = rows.filter(r => (r.fecha || '').slice(0, 10) === today);
+  const c2 = todayRows.filter(r => r.tipo === TYPES[2]).length;
+  const c3 = todayRows.filter(r => r.tipo === TYPES[3]).length;
+  counters[2].textContent = c2;
+  counters[3].textContent = c3;
+  counters.t.textContent = todayRows.length;
 
   // === Contadores por estado (totales) ===
   if (cPendingEl) cPendingEl.textContent = rows.filter(r => !r.estado).length;
   if (cDoneEl) cDoneEl.textContent = rows.filter(r => r.estado).length;
 
   thDate.textContent = sortDesc ? 'Fecha ▼' : 'Fecha ▲';
-}
-
-function renderPaginationControls(totalPages, totalItems) {
-  const container = $('#pagination');
-  if (!container) return;
-
-  if (totalPages <= 1 && totalItems < itemsPerPage) {
-    container.style.display = 'none';
-    return;
-  }
-
-  container.style.display = 'flex';
-  container.innerHTML = `
-    <button class="btn" id="pgPrev" ${currentPage === 1 ? 'disabled' : ''}>Prev</button>
-    <span>Página ${currentPage} de ${totalPages} (${totalItems} items)</span>
-    <button class="btn" id="pgNext" ${currentPage === totalPages ? 'disabled' : ''}>Next</button>
-  `;
-
-  $('#pgPrev')?.addEventListener('click', () => {
-    if (currentPage > 1) { currentPage--; render(); }
-  });
-
-  $('#pgNext')?.addEventListener('click', () => {
-    if (currentPage < totalPages) { currentPage++; render(); }
-  });
 }
 
 // ======== Autocompletado cruzado (historial + import) ========
@@ -694,11 +627,7 @@ qInp.addEventListener('input', (e) => {
     }
   }
   clearTimeout(t);
-  t = setTimeout(() => {
-    q = qInp.value || '';
-    currentPage = 1; // reset page on search
-    render();
-  }, 80);
+  t = setTimeout(() => { q = qInp.value || ''; render(); }, 80);
 });
 
 qInp.addEventListener('paste', (e) => {
@@ -710,22 +639,7 @@ qInp.addEventListener('paste', (e) => {
   }
 });
 
-// Paste button logic
-$('#btnPaste')?.addEventListener('click', async () => {
-  try {
-    const text = await navigator.clipboard.readText();
-    if (text) {
-      qInp.value = text;
-      qInp.dispatchEvent(new Event('input'));
-      qInp.focus();
-    }
-  } catch (err) {
-    console.error('Clipboard paste failed:', err);
-    alert('No se pudo acceder al portapapeles. Da permiso o usa Ctrl+V.');
-  }
-});
-
-$('#clearQ').addEventListener('click', () => { q = ''; qInp.value = ''; currentPage = 1; render(); });
+$('#clearQ').addEventListener('click', () => { q = ''; qInp.value = ''; render(); });
 
 // Filtro por estado (persistente)
 // Filtro por estado (persistente)
@@ -733,7 +647,6 @@ if (typeof stateSel !== 'undefined' && stateSel) {
   stateSel.addEventListener('change', () => {
     filterState = stateSel.value;
     try { localStorage.setItem(LS_FILTER, filterState); } catch { }
-    currentPage = 1; // reset page on filter change
     render();
   });
 }
@@ -1003,12 +916,6 @@ async function reloadFromDb(note = 'sincronizado') {
     return;
   }
 
-  // Evitar recarga si hubo interacción local reciente (Fix "edits lost")
-  if (Date.now() - lastLocalInteractionTime < SYNC_GRACE_PERIOD) {
-    if (note !== 'auto-sync') console.warn('Sync skipped due to local activity');
-    return;
-  }
-
   try {
     // 1. Sync Notas (si no está escribiendo en ellas)
     if (note === 'auto-sync' && document.activeElement !== notesArea) {
@@ -1115,33 +1022,23 @@ function startAutoSync() {
   render();
 
   // Mensaje inicial según soporte del navegador / contexto
-  // 2) Intentar conectar DB (Supabase)
+  // 2) Intentar conectar DB (string hardcoded en neon-db.js)
   const ok = await initDB();
   if (ok) {
-    setDbUI(true, 'Conectado (Supabase)');
+    setDbUI(true, 'Conectado auto');
 
-    // Check if DB is empty to Restore/Migrate
+    // Cargar nota inicial de DB
     try {
-      const serverRows = await fetchAll();
-      if ((!serverRows || serverRows.length === 0) && rows.length > 0) {
-        // Upload local data to Supabase (Migration)
-        setStatus('Migrando datos locales a Supabase...', true);
-        await bulkUpsert(rows);
-
-        const localNote = localStorage.getItem(NOTES_KEY) || '';
-        if (localNote) await saveNote(localNote);
-
-        // Contacts
-        const allPairs = loadPairs();
-        if (allPairs.length) await saveContactsBulk(allPairs);
-
-        setStatus('Migración completada', true);
+      const n = await getNote();
+      if (n) {
+        notesArea.value = n;
+        localStorage.setItem(NOTES_KEY, n);
+        notesStatus.textContent = 'Cargado de DB.';
       }
-    } catch (e) {
-      console.warn('Migration check failed:', e);
-    }
+    } catch (e) { console.warn('Init note error', e); }
 
-    startAutoSync();
+    await reloadFromDb();
+    if (typeof startAutoSync === 'function') startAutoSync();
   } else {
     // Si falla, el propio initDB suele alertar, pero actualizamos UI por si acaso
     setDbUI(false, 'Error conexión (ver consola)');
