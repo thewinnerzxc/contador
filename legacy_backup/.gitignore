@@ -1,6 +1,0 @@
-node_modules/
-.DS_Store
-.vscode/
-*.log
-# Exclude local data file to protect privacy
-activities.csv

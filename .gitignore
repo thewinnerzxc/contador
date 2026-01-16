@@ -31,7 +31,7 @@ config.js
 .env*
 
 # Build output
-public/
+# public/
 *.pem
 
 # debug
@@ -73,7 +73,7 @@ config.js
 .env*
 
 # Build output
-public/
+# public/
 *.pem
 
 # debug

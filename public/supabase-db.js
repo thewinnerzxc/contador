@@ -30,17 +30,37 @@ export function isDbConnected() {
 
 export async function fetchAll() {
     if (!supabase) return [];
-    // select * order by id desc
-    const { data, error } = await supabase
-        .from('activities')
-        .select('*')
-        .order('id', { ascending: false });
 
-    if (error) {
-        console.error('Error fetching activities:', error);
-        return [];
+    let allData = [];
+    let from = 0;
+    const PAGE_SIZE = 1000;
+    let hasMore = true;
+
+    while (hasMore) {
+        const { data, error } = await supabase
+            .from('activities')
+            .select('*')
+            .order('id', { ascending: false })
+            .range(from, from + PAGE_SIZE - 1);
+
+        if (error) {
+            console.error('Error fetching activities:', error);
+            // If we have some data, we return it, otherwise empty
+            return allData;
+        }
+
+        if (data && data.length > 0) {
+            allData = [...allData, ...data];
+            from += PAGE_SIZE;
+            if (data.length < PAGE_SIZE) {
+                hasMore = false;
+            }
+        } else {
+            hasMore = false;
+        }
     }
-    return data || [];
+
+    return allData;
 }
 
 export async function saveRow(row) {
