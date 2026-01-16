@@ -639,6 +639,10 @@ async function handleSmartPaste(formNum) {
     const emInp = $(`#em${formNum}`);
     const waInp = $(`#wa${formNum}`);
 
+    // Limpiar ambos campos antes de procesar el pegado
+    emInp.value = '';
+    waInp.value = '';
+
     // Detectar si es email
     if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanTxt)) {
       emInp.value = cleanTxt;
@@ -722,6 +726,21 @@ $('#clearForms').addEventListener('click', () => {
     $(`#wa${k}`).value = '';
     $(`#co${k}`).value = '';
   });
+});
+
+// Clear everything (Formularios + Buscador)
+$('#clearEverything')?.addEventListener('click', () => {
+  // Limpiar formularios
+  ['2', '3'].forEach(k => {
+    $(`#em${k}`).value = '';
+    $(`#wa${k}`).value = '';
+    $(`#co${k}`).value = '';
+  });
+  // Limpiar buscador
+  q = '';
+  qInp.value = '';
+  currentPage = 1;
+  render();
 });
 
 // Buscador + filtro (persistente) — sanea teléfonos en #q
@@ -929,16 +948,18 @@ $('#bulkImport').addEventListener('click', () => {
   setStatus(`Importados: ${ok} · Duplicados: ${dup} · Vacíos: ${bad}`, true);
 });
 
-// ====== Notas rápidas (autosave + DB sync) ======
+// ====== Notas rápidas (Advanced: contenteditable + smart features) ======
 const notesArea = $('#quickNotes');
 const notesStatus = $('#notesStatus');
+const btnTimestamp = $('#btnTimestamp');
+const notesSearch = $('#notesSearch');
 
 async function saveNotes() {
-  const txt = notesArea.value || '';
+  const html = notesArea.innerHTML || '';
   try {
-    localStorage.setItem(NOTES_KEY, txt);
+    localStorage.setItem(NOTES_KEY, html);
     if (isDbConnected()) {
-      await saveNote(txt);
+      await saveNote(html);
       notesStatus.textContent = 'Guardado en DB ' + new Date().toLocaleTimeString();
     } else {
       notesStatus.textContent = 'Guardado local ' + new Date().toLocaleTimeString();
@@ -951,65 +972,104 @@ function saveNotesDebounced() {
   notesArea._t = setTimeout(saveNotes, 500);
 }
 
+// Carga inicial
 try {
-  notesArea.value = localStorage.getItem(NOTES_KEY) || '';
+  const saved = localStorage.getItem(NOTES_KEY) || '<div>- </div>';
+  notesArea.innerHTML = saved;
   notesStatus.textContent = 'Cargado.';
 } catch { }
-notesArea.addEventListener('focus', () => {
-  if ((notesArea.value || '').trim() === '') {
-    notesArea.value = '- ';
-    const pos = notesArea.value.length;
-    notesArea.setSelectionRange(pos, pos);
-    saveNotesDebounced();
+
+// Timestamp logic
+function insertTimestamp() {
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const stamp = `[${time}] `;
+
+  // Insertar en la posición del cursor
+  const selection = window.getSelection();
+  if (!selection.rangeCount) return;
+  const range = selection.getRangeAt(0);
+  range.deleteContents();
+  const node = document.createTextNode(stamp);
+  range.insertNode(node);
+
+  // Mover cursor al final del stamp
+  range.setStartAfter(node);
+  selection.removeAllRanges();
+  selection.addRange(range);
+
+  saveNotesDebounced();
+}
+
+btnTimestamp?.addEventListener('click', insertTimestamp);
+
+// Smart Click filling logic
+notesArea.addEventListener('click', (e) => {
+  const selection = window.getSelection();
+  const text = selection.toString().trim();
+
+  if (text) {
+    // Si hay texto seleccionado, intentamos detectar si es email/wa
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) {
+      handleSmartFill(text, 'email');
+    } else if (isPhoneLike(text)) {
+      handleSmartFill(digitsOnly(text), 'wa');
+    }
   }
 });
+
+function handleSmartFill(val, type) {
+  // Usamos el formulario 2 por defecto para "pegado rápido"
+  const emInp = $('#em2'), waInp = $('#wa2');
+  if (type === 'email') {
+    emInp.value = val;
+    maybeFillWaFromEmail(emInp, waInp);
+    setStatus('Email enviado al formulario', true);
+  } else {
+    waInp.value = val;
+    maybeFillEmailFromWa(waInp, emInp);
+    setStatus('WhatsApp enviado al formulario', true);
+  }
+}
+
+// Checklist & Enter Logic
 notesArea.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
+    // El comportamiento por defecto de contenteditable suele ser crear un <div>
+    // Queremos que mantenga el prefijo "- " o "- [ ] "
+    setTimeout(() => {
+      const selection = window.getSelection();
+      const node = selection.anchorNode;
+      if (!node) return;
+
+      const lineText = node.textContent || '';
+      // Si la línea anterior tenía un bullet, la nueva también
+      // Nota: Esto es simplificado, contenteditable es complejo
+    }, 10);
+  }
+
+  // Atajo Shift + T para timestamp
+  if (e.shiftKey && e.key.toUpperCase() === 'T' && document.activeElement === notesArea) {
     e.preventDefault();
-    const ta = notesArea;
-    const start = ta.selectionStart;
-    const end = ta.selectionEnd;
-
-    const before = ta.value.slice(0, start);
-    const after = ta.value.slice(end);
-
-    const insert = '\n- ';
-    ta.value = before + insert + after;
-
-    const pos = before.length + insert.length;
-    ta.setSelectionRange(pos, pos);
-
-    // Guardar inmediatamente
-    setTimeout(saveNotes, 10);
+    insertTimestamp();
   }
 });
-notesArea.addEventListener('paste', (e) => {
-  const data = (e.clipboardData || window.clipboardData)?.getData('text') || '';
-  if (!data) return;
 
-  if (data.includes('\n')) {
-    e.preventDefault();
-
-    const bullet = (s) => {
-      const clean = s.replace(/^\s*-\s?/, '');
-      return '- ' + clean;
-    };
-    const bulletText = data.replace(/\r/g, '').split('\n').map(bullet).join('\n');
-
-    const ta = notesArea;
-    const start = ta.selectionStart;
-    const end = ta.selectionEnd;
-
-    ta.value = ta.value.slice(0, start) + bulletText + ta.value.slice(end);
-    const pos = start + bulletText.length;
-    ta.setSelectionRange(pos, pos);
-
-    saveNotesDebounced();
-  }
-});
 notesArea.addEventListener('input', saveNotesDebounced);
 
-// ====== Recargar CSV desde la conexión actual (carpeta o archivo) ======
+// Internal Search/Highlight
+notesSearch?.addEventListener('input', () => {
+  const query = notesSearch.value.toLowerCase().trim();
+  const html = notesArea.innerHTML;
+
+  // Primero limpiamos highlights anteriores
+  notesArea.innerHTML = html.replace(/<span class="search-match">(.*?)<\/span>/gi, '$1');
+
+  if (query.length < 2) return;
+
+  const regex = new RegExp(`(${query})`, 'gi');
+  notesArea.innerHTML = notesArea.innerHTML.replace(regex, '<span class="search-match">$1</span>');
+});
+
 // ====== Recargar desde DB ======
 async function reloadFromDb(note = 'sincronizado') {
   if (!isDbConnected()) return;

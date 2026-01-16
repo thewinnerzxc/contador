@@ -526,14 +526,87 @@ select.typeSel.t3 {
 }
 
 .side .card textarea {
+  display: none;
+  /* Oculto a favor del contenteditable */
+}
+
+.editable-notes {
   width: 100%;
-  min-height: 240px;
-  resize: vertical;
+  min-height: 300px;
+  max-height: 500px;
+  overflow-y: auto;
   background: var(--input-bg);
   color: var(--ink);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 8px;
+  padding: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  outline: none;
+  white-space: pre-wrap;
+}
+
+.editable-notes:focus {
+  border-color: var(--violet);
+  box-shadow: 0 0 0 2px var(--violet-100);
+}
+
+.editable-notes .smart-link {
+  color: var(--violet);
+  font-weight: bold;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.editable-notes .timestamp {
+  color: var(--muted);
+  font-size: 0.85em;
+  font-weight: normal;
+}
+
+.notes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.notes-header h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.notes-toolbar {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.notes-search-inp {
+  width: 80px;
+  padding: 4px 8px;
+  font-size: 11px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--input-bg);
+  color: var(--ink);
+  transition: width 0.3s;
+}
+
+.notes-search-inp:focus {
+  width: 120px;
+}
+
+.search-match {
+  background: rgba(251, 191, 36, 0.4);
+  /* Amber 400 with opacity */
+  border-radius: 2px;
+}
+
+/* Estilo para los items del checklist */
+.editable-notes div {
+  margin-bottom: 2px;
 }
 
 /* Botones extra de búsqueda */

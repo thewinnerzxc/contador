@@ -29,9 +29,16 @@
   <main class="wrap layout">
     <!-- Lateral izquierda -->
     <aside class="side">
-      <div class="card">
-        <h3>📝 Notas rápidas</h3>
-        <textarea id="quickNotes" rows="14" placeholder="Escribe aquí tus apuntes, tareas, pendientes…"></textarea>
+      <div class="card notes-card">
+        <div class="notes-header">
+          <h3>📝 Notas rápidas</h3>
+          <div class="notes-toolbar">
+            <button id="btnTimestamp" class="btn small ghost" title="Insertar hora actual">🕒</button>
+            <input id="notesSearch" type="text" placeholder="Buscar..." class="notes-search-inp" />
+          </div>
+        </div>
+        <div id="quickNotes" contenteditable="true" class="editable-notes"
+          placeholder="Escribe aquí tus apuntes, tareas, pendientes…"></div>
         <div id="notesStatus" class="muted">—</div>
 
         <!-- separador visual -->
@@ -65,7 +72,10 @@
     <section class="content">
       <div class="sectionbar">
         <h2 class="h2">Registrar actividad</h2>
-        <button id="clearForms" class="btn ghost">Clear</button>
+        <div class="row-btns">
+          <button id="clearEverything" class="btn ghost">Clear all</button>
+          <button id="clearForms" class="btn ghost">Clear</button>
+        </div>
       </div>
 
       <div class="actions">
