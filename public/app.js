@@ -1078,20 +1078,50 @@ function handleSmartFill(val, type) {
   }
 }
 
-// Checklist & Enter Logic
+// Checklist & Enter Logic (Smart Enter)
 notesArea.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
-    // El comportamiento por defecto de contenteditable suele ser crear un <div>
-    // Queremos que mantenga el prefijo "- " o "- [ ] "
-    setTimeout(() => {
-      const selection = window.getSelection();
-      const node = selection.anchorNode;
-      if (!node) return;
+    e.preventDefault();
 
-      const lineText = node.textContent || '';
-      // Si la línea anterior tenía un bullet, la nueva también
-      // Nota: Esto es simplificado, contenteditable es complejo
-    }, 10);
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return;
+    const range = selection.getRangeAt(0);
+
+    // Encontrar el div actual (la "línea")
+    let currentLine = range.startContainer;
+    while (currentLine && currentLine.nodeName !== 'DIV' && currentLine !== notesArea) {
+      currentLine = currentLine.parentNode;
+    }
+
+    let prefix = '';
+    // Detectar si la línea actual tiene un checkbox
+    if (currentLine && currentLine.nodeName === 'DIV') {
+      if (currentLine.querySelector('.note-checkbox')) {
+        prefix = '<input type="checkbox" class="note-checkbox"> ';
+      } else if (currentLine.innerText.trim().startsWith('-')) {
+        prefix = '- ';
+      }
+    }
+
+    // Crear la nueva línea
+    const newLine = document.createElement('div');
+    newLine.innerHTML = prefix || '<br>';
+
+    // Insertar después de la línea actual
+    if (currentLine && currentLine !== notesArea) {
+      currentLine.after(newLine);
+    } else {
+      notesArea.appendChild(newLine);
+    }
+
+    // Mover cursor a la nueva línea
+    const newRange = document.createRange();
+    newRange.setStart(newLine, newLine.childNodes.length);
+    newRange.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(newRange);
+
+    saveNotesDebounced();
   }
 
   // Atajo Shift + T para timestamp
