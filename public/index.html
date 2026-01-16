@@ -18,8 +18,7 @@
         <button id="btnSync" class="btn">Sincronizar</button>
 
         <button id="downloadCSV" class="btn">Descargar CSV (Backup)</button>
-        <button id="clearAll" class="btn">Limpiar todo</button>
-        <button id="btnBulk" class="btn warn">Bulk import</button>
+        <button id="btnBulk" class="btn warn">Importar Contactos</button>
         <span id="dbStatus" class="pill">DB: —</span>
       </div>
 
@@ -150,16 +149,11 @@
     </section>
   </main>
 
-  <footer class="wrap">
-    <div class="footerbar">
-      <button id="saveNow" class="btn">Guardar ahora</button>
-      <span class="status pill" id="status">Listo.</span>
-    </div>
-  </footer>
+  <!-- footer removido -->
 
-  <!-- Diálogo Bulk import -->
+  <!-- Diálogo Importar Contactos -->
   <dialog id="dlgBulk" class="dialog">
-    <h3>Bulk import (email, whatsapp)</h3>
+    <h3>Importar Contactos (email, whatsapp)</h3>
     <p class="muted">
       Una fila por contacto. Separador: <b>coma</b> o <b>tab</b>. Ejemplos:<br />
       <code>correo@dominio.com, +51 999 888 777</code>

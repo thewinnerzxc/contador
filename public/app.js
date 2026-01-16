@@ -50,7 +50,6 @@ const status = $('#status');
 const cPendingEl = $('#cPending');
 const cDoneEl = $('#cDone');
 
-const clearAllBtn = $('#clearAll');
 const btnSync = $('#btnSync');
 
 // Auth refs
@@ -738,35 +737,7 @@ if (typeof stateSel !== 'undefined' && stateSel) {
   });
 }
 
-// Botón "Limpiar todo" — borra todas las actividades + sincroniza CSV
-clearAllBtn?.addEventListener('click', async () => {
-  if (!rows.length) {
-    setStatus('No hay actividades para limpiar', false);
-    return;
-  }
-  const ok = confirm(
-    'Esto eliminará TODAS las actividades y sobrescribirá activities.csv con un archivo vacío.\n\n¿Seguro que deseas continuar?'
-  );
-  if (!ok) return;
-
-  rows = [];
-  saveLocal();
-  buildDir();
-  render();
-
-  if (isDbConnected()) {
-    try {
-      await deleteAll();
-      setDbUI(true, 'DB vacía');
-      setStatus('Actividades limpiadas en DB', true);
-    } catch (e) {
-      console.error('Error al limpiar DB:', e);
-      setStatus('Error al limpiar DB', false);
-    }
-  } else {
-    setStatus('Actividades limpiadas (solo local)', true);
-  }
-});
+// Botón "Limpiar todo" removido por solicitud del usuario.
 
 // Ordenar por fecha
 thDate.addEventListener('click', () => { sortDesc = !sortDesc; render(); });
