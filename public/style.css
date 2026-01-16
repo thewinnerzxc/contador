@@ -609,6 +609,23 @@ select.typeSel.t3 {
   margin-bottom: 2px;
 }
 
+.editable-notes div.hidden-line {
+  display: none !important;
+}
+
+.note-checkbox {
+  margin-right: 8px;
+  cursor: pointer;
+  transform: scale(1.2);
+  vertical-align: middle;
+}
+
+/* Permitir que los checkboxes sean interactivos en contenteditable */
+.editable-notes input[type="checkbox"] {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
 /* Botones extra de búsqueda */
 .row-btns {
   display: flex;

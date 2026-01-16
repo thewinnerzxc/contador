@@ -952,6 +952,7 @@ $('#bulkImport').addEventListener('click', () => {
 const notesArea = $('#quickNotes');
 const notesStatus = $('#notesStatus');
 const btnTimestamp = $('#btnTimestamp');
+const btnChecklist = $('#btnChecklist');
 const notesSearch = $('#notesSearch');
 
 async function saveNotes() {
@@ -1002,8 +1003,54 @@ function insertTimestamp() {
 
 btnTimestamp?.addEventListener('click', insertTimestamp);
 
+// Checklist logic
+function insertChecklist() {
+  const checkboxHtml = '<div><input type="checkbox" class="note-checkbox"> </div>';
+
+  const selection = window.getSelection();
+  if (!selection.rangeCount) return;
+  const range = selection.getRangeAt(0);
+
+  const fragment = range.createContextualFragment(checkboxHtml);
+  const newNode = fragment.firstChild;
+  range.insertNode(fragment);
+
+  range.setStartAfter(newNode.lastChild || newNode);
+  selection.removeAllRanges();
+  selection.addRange(range);
+
+  saveNotesDebounced();
+}
+
+btnChecklist?.addEventListener('click', insertChecklist);
+
+// Permitir que los checkboxes se guarden (actualizar atributo checked en el DOM)
+notesArea.addEventListener('change', (e) => {
+  if (e.target.classList.contains('note-checkbox')) {
+    if (e.target.checked) {
+      e.target.setAttribute('checked', 'checked');
+    } else {
+      e.target.removeAttribute('checked');
+    }
+    saveNotesDebounced();
+  }
+});
+
 // Smart Click filling logic
 notesArea.addEventListener('click', (e) => {
+  // Manejar clicks en checkboxes
+  if (e.target.classList.contains('note-checkbox')) {
+    setTimeout(() => {
+      if (e.target.checked) {
+        e.target.setAttribute('checked', 'checked');
+      } else {
+        e.target.removeAttribute('checked');
+      }
+      saveNotesDebounced();
+    }, 10);
+    return;
+  }
+
   const selection = window.getSelection();
   const text = selection.toString().trim();
 
@@ -1056,18 +1103,33 @@ notesArea.addEventListener('keydown', (e) => {
 
 notesArea.addEventListener('input', saveNotesDebounced);
 
-// Internal Search/Highlight
+// Internal Search/Highlight & Real-time FILTRADO
 notesSearch?.addEventListener('input', () => {
   const query = notesSearch.value.toLowerCase().trim();
-  const html = notesArea.innerHTML;
 
-  // Primero limpiamos highlights anteriores
+  // 1. Limpiar highlights y clases de filtrado anteriores
+  const html = notesArea.innerHTML;
   notesArea.innerHTML = html.replace(/<span class="search-match">(.*?)<\/span>/gi, '$1');
 
-  if (query.length < 2) return;
+  const lines = notesArea.querySelectorAll('div');
 
-  const regex = new RegExp(`(${query})`, 'gi');
-  notesArea.innerHTML = notesArea.innerHTML.replace(regex, '<span class="search-match">$1</span>');
+  if (query.length < 2) {
+    lines.forEach(line => line.classList.remove('hidden-line'));
+    return;
+  }
+
+  // 2. Filtrar y resaltar
+  lines.forEach(line => {
+    const text = line.innerText.toLowerCase();
+    if (text.includes(query)) {
+      line.classList.remove('hidden-line');
+      // Resaltar dentro de la línea visible
+      const regex = new RegExp(`(${query})`, 'gi');
+      line.innerHTML = line.innerHTML.replace(regex, '<span class="search-match">$1</span>');
+    } else {
+      line.classList.add('hidden-line');
+    }
+  });
 });
 
 // ====== Recargar desde DB ======
