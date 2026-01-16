@@ -362,6 +362,19 @@ footer {
   border-radius: 999px;
   font-size: 12px;
   font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.tag-btn:hover {
+  filter: brightness(1.2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.tag-btn:active {
+  transform: translateY(0);
 }
 
 .row.t1 .tag {

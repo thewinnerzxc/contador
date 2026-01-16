@@ -626,6 +626,51 @@ function bindFormEnhancements(k) {
 }
 // ======== Fin autocompletado ========
 
+// Smart Paste logic
+async function handleSmartPaste(formNum) {
+  try {
+    const text = await navigator.clipboard.readText();
+    const cleanTxt = (text || '').trim();
+    if (!cleanTxt) {
+      setStatus('Portapapeles vacío', false);
+      return;
+    }
+
+    const emInp = $(`#em${formNum}`);
+    const waInp = $(`#wa${formNum}`);
+
+    // Detectar si es email
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanTxt)) {
+      emInp.value = cleanTxt;
+      maybeFillWaFromEmail(emInp, waInp);
+      setStatus('Email pegado y autocompletado', true);
+    }
+    // Detectar si es teléfono (o similar)
+    else if (isPhoneLike(cleanTxt)) {
+      const cleaned = digitsOnly(cleanTxt);
+      waInp.value = cleaned;
+      maybeFillEmailFromWa(waInp, emInp);
+      setStatus('WhatsApp pegado y autocompletado', true);
+    }
+    else {
+      // Si no es ninguno claro, lo ponemos en comentario o simplemente avisamos
+      setStatus('No se detectó Email o WhatsApp válido', false);
+    }
+  } catch (err) {
+    console.error('Smart paste failed:', err);
+    setStatus('Error al acceder al portapapeles', false);
+  }
+}
+
+// Vincula eventos a los botones tag
+document.querySelectorAll('.tag-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    const formNum = btn.getAttribute('data-form');
+    handleSmartPaste(formNum);
+  });
+});
+
 // Eventos: altas
 $('#b2').addEventListener('click', () => {
   addActivity(2, $('#em2').value, $('#wa2').value, $('#co2').value);
