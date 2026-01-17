@@ -33,31 +33,32 @@ export async function fetchAll() {
 
     let allData = [];
     let from = 0;
-    const PAGE_SIZE = 1000;
-    let hasMore = true;
+    let to = 999;
+    const CHUNK_SIZE = 1000;
+    const MAX_RECORDS = 20000; // Increased safety limit to 20,000 records
 
-    while (hasMore) {
-        const { data, error } = await supabase
-            .from('activities')
-            .select('*')
-            .order('id', { ascending: false })
-            .range(from, from + PAGE_SIZE - 1);
+    try {
+        while (allData.length < MAX_RECORDS) {
+            const { data, error } = await supabase
+                .from('activities')
+                .select('*')
+                .order('id', { ascending: false })
+                .range(from, to);
 
-        if (error) {
-            console.error('Error fetching activities:', error);
-            // If we have some data, we return it, otherwise empty
-            return allData;
+            if (error) throw error;
+            if (!data || data.length === 0) break;
+
+            allData = allData.concat(data);
+
+            // If we got fewer records than requested, we reached the end
+            if (data.length < CHUNK_SIZE) break;
+
+            from += CHUNK_SIZE;
+            to += CHUNK_SIZE;
         }
-
-        if (data && data.length > 0) {
-            allData = [...allData, ...data];
-            from += PAGE_SIZE;
-            if (data.length < PAGE_SIZE) {
-                hasMore = false;
-            }
-        } else {
-            hasMore = false;
-        }
+    } catch (error) {
+        console.error('Error fetching activities:', error);
+        return allData.length > 0 ? allData : [];
     }
 
     return allData;

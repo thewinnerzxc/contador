@@ -362,19 +362,6 @@ footer {
   border-radius: 999px;
   font-size: 12px;
   font-weight: 800;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  user-select: none;
-}
-
-.tag-btn:hover {
-  filter: brightness(1.2);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.tag-btn:active {
-  transform: translateY(0);
 }
 
 .row.t1 .tag {
@@ -525,105 +512,38 @@ select.typeSel.t3 {
   }
 }
 
-.side .card textarea {
-  display: none;
-  /* Oculto a favor del contenteditable */
-}
-
-.editable-notes {
+.side .card .notes-area {
   width: 100%;
-  min-height: 300px;
-  max-height: 500px;
+  min-height: 180px;
+  max-height: 45vh;
   overflow-y: auto;
   background: var(--input-bg);
   color: var(--ink);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 10px;
-  font-family: inherit;
-  font-size: 14px;
-  line-height: 1.5;
-  outline: none;
+  padding: 8px;
+  font-family: "Aptos", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
   white-space: pre-wrap;
+  word-break: break-word;
 }
 
-.editable-notes:focus {
-  border-color: var(--violet);
-  box-shadow: 0 0 0 2px var(--violet-100);
+.notes-area:focus {
+  outline: 2px solid var(--t1);
+  border-color: transparent;
 }
 
-.editable-notes .smart-link {
-  color: var(--violet);
-  font-weight: bold;
-  cursor: pointer;
-  text-decoration: underline;
-}
-
-.editable-notes .timestamp {
+/* Placeholder for contenteditable */
+.notes-area:empty:before {
+  content: attr(placeholder);
   color: var(--muted);
-  font-size: 0.85em;
-  font-weight: normal;
 }
 
-.notes-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.notes-header h3 {
-  margin: 0;
-  font-size: 14px;
-}
-
-.notes-toolbar {
-  display: flex;
-  gap: 5px;
-  align-items: center;
-}
-
-.notes-search-inp {
-  width: 80px;
-  padding: 4px 8px;
-  font-size: 11px;
-  border-radius: 6px;
-  border: 1px solid var(--line);
-  background: var(--input-bg);
-  color: var(--ink);
-  transition: width 0.3s;
-}
-
-.notes-search-inp:focus {
-  width: 120px;
-}
-
-.search-match {
-  background: rgba(251, 191, 36, 0.4);
-  /* Amber 400 with opacity */
+.notes-area mark {
+  background: var(--t3);
+  color: #000;
   border-radius: 2px;
-}
-
-/* Estilo para los items del checklist */
-.editable-notes div {
-  margin-bottom: 2px;
-}
-
-.editable-notes div.hidden-line {
-  display: none !important;
-}
-
-.note-checkbox {
-  margin-right: 8px;
-  cursor: pointer;
-  transform: scale(1.2);
-  vertical-align: middle;
-}
-
-/* Permitir que los checkboxes sean interactivos en contenteditable */
-.editable-notes input[type="checkbox"] {
-  pointer-events: auto;
-  cursor: pointer;
 }
 
 /* Botones extra de búsqueda */
@@ -890,6 +810,12 @@ dialog::backdrop {
   transition: background .2s ease;
 }
 
+.copy-mail.picked {
+  background: #064e3b;
+  box-shadow: inset 0 -2px 0 #34d399;
+  border-radius: 4px;
+}
+
 /* Resaltado morado cuando el WA está “seleccionado” */
 #waQuick.picked,
 .wa-input.picked {
@@ -1000,4 +926,82 @@ dialog::backdrop {
   opacity: 0.5;
   cursor: not-allowed;
   pointer-events: none;
+}
+
+/* New UI Enhancements */
+.bar-btns {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn.danger {
+  background: #dc2626;
+  color: #fff;
+  border-color: transparent;
+}
+
+.btn.danger:hover {
+  background: #b91c1c;
+}
+
+.tag-btn {
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: filter 0.2s, transform 0.1s;
+}
+
+.tag-btn:hover {
+  filter: brightness(1.2);
+}
+
+.tag-btn:active {
+  transform: scale(0.98);
+}
+
+.notes-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.btn-icon {
+  background: var(--input-bg);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.btn-icon:hover {
+  background: var(--line);
+}
+
+.notes-search {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--input-bg);
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.notes-search:focus {
+  outline: 2px solid var(--t1);
+  border-color: transparent;
+}
+
+/* Highlight search matches in textarea (pseudo-highlight via selection) */
+#quickNotes::selection {
+  background: var(--t3);
+  color: #000;
 }

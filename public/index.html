@@ -18,7 +18,7 @@
         <button id="btnSync" class="btn">Sincronizar</button>
 
         <button id="downloadCSV" class="btn">Descargar CSV (Backup)</button>
-        <button id="btnBulk" class="btn warn">Importar Contactos</button>
+        <button id="btnBulk" class="btn warn">Bulk import</button>
         <span id="dbStatus" class="pill">DB: —</span>
       </div>
 
@@ -29,16 +29,12 @@
   <main class="wrap layout">
     <!-- Lateral izquierda -->
     <aside class="side">
-      <div class="card notes-card">
+      <div class="card">
         <div class="notes-header">
-          <h3>📝 Notas rápidas</h3>
-          <div class="notes-toolbar">
-            <button id="btnTimestamp" class="btn small ghost" title="Insertar hora actual">🕒</button>
-            <button id="btnChecklist" class="btn small ghost" title="Insertar checklist">☑️</button>
-            <input id="notesSearch" type="text" placeholder="Buscar..." class="notes-search-inp" />
-          </div>
+          <button id="addNote" class="btn-icon" title="Agregar nota al inicio">➕</button>
+          <input type="text" id="searchNotes" placeholder="Buscar notas..." class="notes-search" />
         </div>
-        <div id="quickNotes" contenteditable="true" class="editable-notes"
+        <div id="quickNotes" class="notes-area" contenteditable="true" spellcheck="false"
           placeholder="Escribe aquí tus apuntes, tareas, pendientes…"></div>
         <div id="notesStatus" class="muted">—</div>
 
@@ -73,8 +69,8 @@
     <section class="content">
       <div class="sectionbar">
         <h2 class="h2">Registrar actividad</h2>
-        <div class="row-btns">
-          <button id="clearEverything" class="btn ghost">Clear all</button>
+        <div class="bar-btns">
+          <button id="clearAllFields" class="btn danger">Clear all</button>
           <button id="clearForms" class="btn ghost">Clear</button>
         </div>
       </div>
@@ -82,8 +78,7 @@
       <div class="actions">
         <!-- 1 (Antes 2) -->
         <div class="row t2">
-          <button class="tag tag-btn" data-form="2" title="Click para pegar inteligentemente">1) Resuelta su consulta de
-            WhatsApp</button>
+          <button class="tag tag-btn" id="pasteRow2">1) Resuelta su consulta de WhatsApp</button>
           <div class="email">
             <label>Email</label>
             <input id="em2" type="email" placeholder="email@dominio.com" />
@@ -105,8 +100,7 @@
 
         <!-- 2 (Antes 3) -->
         <div class="row t3">
-          <button class="tag tag-btn" data-form="3" title="Click para pegar inteligentemente">2) Resuelta consulta de
-            Email</button>
+          <button class="tag tag-btn" id="pasteRow3">2) Resuelta consulta de Email</button>
           <div class="email">
             <label>Email</label>
             <input id="em3" type="email" placeholder="email@dominio.com" />
@@ -162,11 +156,16 @@
     </section>
   </main>
 
-  <!-- footer removido -->
+  <footer class="wrap">
+    <div class="footerbar">
+      <button id="saveNow" class="btn">Guardar ahora</button>
+      <span class="status pill" id="status">Listo.</span>
+    </div>
+  </footer>
 
-  <!-- Diálogo Importar Contactos -->
+  <!-- Diálogo Bulk import -->
   <dialog id="dlgBulk" class="dialog">
-    <h3>Importar Contactos (email, whatsapp)</h3>
+    <h3>Bulk import (email, whatsapp)</h3>
     <p class="muted">
       Una fila por contacto. Separador: <b>coma</b> o <b>tab</b>. Ejemplos:<br />
       <code>correo@dominio.com, +51 999 888 777</code>

@@ -50,6 +50,7 @@ const status = $('#status');
 const cPendingEl = $('#cPending');
 const cDoneEl = $('#cDone');
 
+const clearAllFieldsBtn = $('#clearAllFields');
 const btnSync = $('#btnSync');
 
 // Auth refs
@@ -74,6 +75,7 @@ let sortDesc = true;         // por fecha desc
 let mapEmailToWa = new Map();
 let mapWaToEmail = new Map();
 let lastPickedWaEl = null;   // último número WA resaltado en la tabla
+let lastPickedEmailEl = null; // último email resaltado en la tabla
 
 // -- Pagination & Sync vars --
 let currentPage = 1;
@@ -472,8 +474,12 @@ function render() {
       const mail = el.getAttribute('data-email') || '';
       if (!mail) return;
       await copyToClipboard(mail);
-      el.classList.add('copied');
-      setTimeout(() => el.classList.remove('copied'), 800);
+
+      clearTableHighlights();
+      el.classList.add('picked');
+      lastPickedEmailEl = el;
+
+      setStatus('Email copiado al portapapeles', true);
     });
   });
 
@@ -626,55 +632,6 @@ function bindFormEnhancements(k) {
 }
 // ======== Fin autocompletado ========
 
-// Smart Paste logic
-async function handleSmartPaste(formNum) {
-  try {
-    const text = await navigator.clipboard.readText();
-    const cleanTxt = (text || '').trim();
-    if (!cleanTxt) {
-      setStatus('Portapapeles vacío', false);
-      return;
-    }
-
-    const emInp = $(`#em${formNum}`);
-    const waInp = $(`#wa${formNum}`);
-
-    // Limpiar ambos campos antes de procesar el pegado
-    emInp.value = '';
-    waInp.value = '';
-
-    // Detectar si es email
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanTxt)) {
-      emInp.value = cleanTxt;
-      maybeFillWaFromEmail(emInp, waInp);
-      setStatus('Email pegado y autocompletado', true);
-    }
-    // Detectar si es teléfono (o similar)
-    else if (isPhoneLike(cleanTxt)) {
-      const cleaned = digitsOnly(cleanTxt);
-      waInp.value = cleaned;
-      maybeFillEmailFromWa(waInp, emInp);
-      setStatus('WhatsApp pegado y autocompletado', true);
-    }
-    else {
-      // Si no es ninguno claro, lo ponemos en comentario o simplemente avisamos
-      setStatus('No se detectó Email o WhatsApp válido', false);
-    }
-  } catch (err) {
-    console.error('Smart paste failed:', err);
-    setStatus('Error al acceder al portapapeles', false);
-  }
-}
-
-// Vincula eventos a los botones tag
-document.querySelectorAll('.tag-btn').forEach(btn => {
-  btn.addEventListener('click', (e) => {
-    e.preventDefault();
-    const formNum = btn.getAttribute('data-form');
-    handleSmartPaste(formNum);
-  });
-});
-
 // Eventos: altas
 $('#b2').addEventListener('click', () => {
   addActivity(2, $('#em2').value, $('#wa2').value, $('#co2').value);
@@ -720,28 +677,76 @@ function markAdded(btn) {
 }
 
 // Clear formularios
-$('#clearForms').addEventListener('click', () => {
+const clearInputs = () => {
   ['2', '3'].forEach(k => {
     $(`#em${k}`).value = '';
     $(`#wa${k}`).value = '';
     $(`#co${k}`).value = '';
   });
-});
+};
 
-// Clear everything (Formularios + Buscador)
-$('#clearEverything')?.addEventListener('click', () => {
-  // Limpiar formularios
-  ['2', '3'].forEach(k => {
-    $(`#em${k}`).value = '';
-    $(`#wa${k}`).value = '';
-    $(`#co${k}`).value = '';
-  });
-  // Limpiar buscador
+$('#clearForms').addEventListener('click', clearInputs);
+
+// Clear all fields (forms + search)
+const clearAllActive = () => {
+  clearInputs();
   q = '';
   qInp.value = '';
+  if (lastPickedEmailEl) lastPickedEmailEl.classList.remove('picked');
+  if (lastPickedWaEl) lastPickedWaEl.classList.remove('picked');
+  lastPickedEmailEl = null;
+  lastPickedWaEl = null;
   currentPage = 1;
   render();
+};
+
+clearAllFieldsBtn?.addEventListener('click', clearAllActive);
+
+// ESC key support
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    clearAllActive();
+  }
 });
+
+// Activity Tag Paste buttons
+const handleTagPaste = async (kind) => {
+  const em = $(`#em${kind}`);
+  const wa = $(`#wa${kind}`);
+  const co = $(`#co${kind}`);
+
+  // Clean before paste
+  em.value = '';
+  wa.value = '';
+  co.value = '';
+
+  try {
+    const text = await navigator.clipboard.readText();
+    if (text) {
+      // Logic to decide where to paste: if looks like email, put in em, if digits put in wa
+      const clean = text.trim();
+      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
+        em.value = clean;
+        maybeFillWaFromEmail(em, wa);
+      } else if (/\d/.test(clean)) {
+        wa.value = digitsOnly(clean);
+        maybeFillEmailFromWa(wa, em);
+      } else {
+        // Fallback: put in comment or as best guess
+        co.value = clean;
+      }
+      setStatus('Pegado del portapapeles', true);
+    }
+    // Final focus on comment field
+    co.focus();
+  } catch (err) {
+    console.error('Clipboard paste failed:', err);
+    co.focus(); // Focus even on error
+  }
+};
+
+$('#pasteRow2')?.addEventListener('click', () => handleTagPaste(2));
+$('#pasteRow3')?.addEventListener('click', () => handleTagPaste(3));
 
 // Buscador + filtro (persistente) — sanea teléfonos en #q
 let t;
@@ -801,7 +806,12 @@ if (typeof stateSel !== 'undefined' && stateSel) {
   });
 }
 
-// Botón "Limpiar todo" removido por solicitud del usuario.
+// Botón "Limpiar todo" - REMOVED per user request
+/*
+clearAllBtn?.addEventListener('click', async () => {
+  ...
+});
+*/
 
 // Ordenar por fecha
 thDate.addEventListener('click', () => { sortDesc = !sortDesc; render(); });
@@ -812,12 +822,20 @@ const waCopy = $('#waCopy');
 const waOpen = $('#waOpen');
 const waClear = $('#waClear');
 
-function clearWaQuickHighlight() {
-  waQuick?.classList.remove('picked');
+function clearTableHighlights() {
   if (lastPickedWaEl) {
     lastPickedWaEl.classList.remove('picked');
     lastPickedWaEl = null;
   }
+  if (lastPickedEmailEl) {
+    lastPickedEmailEl.classList.remove('picked');
+    lastPickedEmailEl = null;
+  }
+}
+
+function clearWaQuickHighlight() {
+  waQuick?.classList.remove('picked');
+  clearTableHighlights();
 }
 
 // usado al hacer click en un número de la tabla
@@ -826,7 +844,7 @@ function setQuickWaFromTable(num, el) {
     waQuick.value = digitsOnly(num);
     waQuick.classList.add('picked');
   }
-  if (lastPickedWaEl) lastPickedWaEl.classList.remove('picked');
+  clearTableHighlights();
   if (el) { el.classList.add('picked'); lastPickedWaEl = el; }
 }
 
@@ -948,19 +966,20 @@ $('#bulkImport').addEventListener('click', () => {
   setStatus(`Importados: ${ok} · Duplicados: ${dup} · Vacíos: ${bad}`, true);
 });
 
-// ====== Notas rápidas (Advanced: contenteditable + smart features) ======
+// ====== Notas rápidas (autosave + DB sync) ======
 const notesArea = $('#quickNotes');
 const notesStatus = $('#notesStatus');
-const btnTimestamp = $('#btnTimestamp');
-const btnChecklist = $('#btnChecklist');
-const notesSearch = $('#notesSearch');
+const notesSearch = $('#searchNotes');
+
+// Helper to get plain text from notesArea
+const getNotesText = () => notesArea.innerText || '';
 
 async function saveNotes() {
-  const html = notesArea.innerHTML || '';
+  const txt = getNotesText();
   try {
-    localStorage.setItem(NOTES_KEY, html);
+    localStorage.setItem(NOTES_KEY, txt);
     if (isDbConnected()) {
-      await saveNote(html);
+      await saveNote(txt);
       notesStatus.textContent = 'Guardado en DB ' + new Date().toLocaleTimeString();
     } else {
       notesStatus.textContent = 'Guardado local ' + new Date().toLocaleTimeString();
@@ -973,195 +992,122 @@ function saveNotesDebounced() {
   notesArea._t = setTimeout(saveNotes, 500);
 }
 
-// Carga inicial
+// Initial Load
 try {
-  const saved = localStorage.getItem(NOTES_KEY) || '<div>- </div>';
-  notesArea.innerHTML = saved;
+  const saved = localStorage.getItem(NOTES_KEY) || '';
+  notesArea.innerText = saved;
   notesStatus.textContent = 'Cargado.';
 } catch { }
 
-// Timestamp logic
-function insertTimestamp() {
-  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const stamp = `[${time}] `;
-
-  // Insertar en la posición del cursor
-  const selection = window.getSelection();
-  if (!selection.rangeCount) return;
-  const range = selection.getRangeAt(0);
-  range.deleteContents();
-  const node = document.createTextNode(stamp);
-  range.insertNode(node);
-
-  // Mover cursor al final del stamp
-  range.setStartAfter(node);
-  selection.removeAllRanges();
-  selection.addRange(range);
-
-  saveNotesDebounced();
-}
-
-btnTimestamp?.addEventListener('click', insertTimestamp);
-
-// Checklist logic
-function insertChecklist() {
-  const checkboxHtml = '<div><input type="checkbox" class="note-checkbox"> </div>';
-
-  const selection = window.getSelection();
-  if (!selection.rangeCount) return;
-  const range = selection.getRangeAt(0);
-
-  const fragment = range.createContextualFragment(checkboxHtml);
-  const newNode = fragment.firstChild;
-  range.insertNode(fragment);
-
-  range.setStartAfter(newNode.lastChild || newNode);
-  selection.removeAllRanges();
-  selection.addRange(range);
-
-  saveNotesDebounced();
-}
-
-btnChecklist?.addEventListener('click', insertChecklist);
-
-// Permitir que los checkboxes se guarden (actualizar atributo checked en el DOM)
-notesArea.addEventListener('change', (e) => {
-  if (e.target.classList.contains('note-checkbox')) {
-    if (e.target.checked) {
-      e.target.setAttribute('checked', 'checked');
-    } else {
-      e.target.removeAttribute('checked');
-    }
+// Clear highlights when focusing the notes
+notesArea.addEventListener('focus', () => {
+  const txt = getNotesText();
+  notesArea.innerText = txt; // Remove <mark> tags
+  if (txt.trim() === '') {
+    notesArea.innerText = '- ';
+    // Position cursor at end
+    const range = document.createRange();
+    const sel = window.getSelection();
+    range.selectNodeContents(notesArea);
+    range.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(range);
     saveNotesDebounced();
   }
 });
 
-// Smart Click filling logic
-notesArea.addEventListener('click', (e) => {
-  // Manejar clicks en checkboxes
-  if (e.target.classList.contains('note-checkbox')) {
-    setTimeout(() => {
-      if (e.target.checked) {
-        e.target.setAttribute('checked', 'checked');
-      } else {
-        e.target.removeAttribute('checked');
-      }
-      saveNotesDebounced();
-    }, 10);
-    return;
-  }
-
-  const selection = window.getSelection();
-  const text = selection.toString().trim();
-
-  if (text) {
-    // Si hay texto seleccionado, intentamos detectar si es email/wa
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) {
-      handleSmartFill(text, 'email');
-    } else if (isPhoneLike(text)) {
-      handleSmartFill(digitsOnly(text), 'wa');
-    }
-  }
-});
-
-function handleSmartFill(val, type) {
-  // Usamos el formulario 2 por defecto para "pegado rápido"
-  const emInp = $('#em2'), waInp = $('#wa2');
-  if (type === 'email') {
-    emInp.value = val;
-    maybeFillWaFromEmail(emInp, waInp);
-    setStatus('Email enviado al formulario', true);
-  } else {
-    waInp.value = val;
-    maybeFillEmailFromWa(waInp, emInp);
-    setStatus('WhatsApp enviado al formulario', true);
-  }
-}
-
-// Checklist & Enter Logic (Smart Enter)
 notesArea.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     e.preventDefault();
-
-    const selection = window.getSelection();
-    if (!selection.rangeCount) return;
-    const range = selection.getRangeAt(0);
-
-    // Encontrar el div actual (la "línea")
-    let currentLine = range.startContainer;
-    while (currentLine && currentLine.nodeName !== 'DIV' && currentLine !== notesArea) {
-      currentLine = currentLine.parentNode;
-    }
-
-    let prefix = '';
-    // Detectar si la línea actual tiene un checkbox
-    if (currentLine && currentLine.nodeName === 'DIV') {
-      if (currentLine.querySelector('.note-checkbox')) {
-        prefix = '<input type="checkbox" class="note-checkbox"> ';
-      } else if (currentLine.innerText.trim().startsWith('-')) {
-        prefix = '- ';
-      }
-    }
-
-    // Crear la nueva línea
-    const newLine = document.createElement('div');
-    newLine.innerHTML = prefix || '<br>';
-
-    // Insertar después de la línea actual
-    if (currentLine && currentLine !== notesArea) {
-      currentLine.after(newLine);
-    } else {
-      notesArea.appendChild(newLine);
-    }
-
-    // Mover cursor a la nueva línea
-    const newRange = document.createRange();
-    newRange.setStart(newLine, newLine.childNodes.length);
-    newRange.collapse(true);
-    selection.removeAllRanges();
-    selection.addRange(newRange);
-
+    const sel = window.getSelection();
+    const range = sel.getRangeAt(0);
+    const textNode = document.createTextNode('\n- ');
+    range.insertNode(textNode);
+    range.setStartAfter(textNode);
+    range.setEndAfter(textNode);
+    sel.removeAllRanges();
+    sel.addRange(range);
     saveNotesDebounced();
-  }
-
-  // Atajo Shift + T para timestamp
-  if (e.shiftKey && e.key.toUpperCase() === 'T' && document.activeElement === notesArea) {
-    e.preventDefault();
-    insertTimestamp();
   }
 });
 
-notesArea.addEventListener('input', saveNotesDebounced);
+notesArea.addEventListener('paste', (e) => {
+  e.preventDefault();
+  const data = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+  if (!data) return;
 
-// Internal Search/Highlight & Real-time FILTRADO
-notesSearch?.addEventListener('input', () => {
-  const query = notesSearch.value.toLowerCase().trim();
+  const bullet = (s) => {
+    const clean = s.replace(/^\s*-\s?/, '');
+    return '- ' + clean;
+  };
+  const processed = data.includes('\n')
+    ? data.replace(/\r/g, '').split('\n').map(bullet).join('\n')
+    : data;
 
-  // 1. Limpiar highlights y clases de filtrado anteriores
-  const html = notesArea.innerHTML;
-  notesArea.innerHTML = html.replace(/<span class="search-match">(.*?)<\/span>/gi, '$1');
+  const sel = window.getSelection();
+  const range = sel.getRangeAt(0);
+  const textNode = document.createTextNode(processed);
+  range.insertNode(textNode);
+  range.setStartAfter(textNode);
+  range.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(range);
+  saveNotesDebounced();
+});
 
-  const lines = notesArea.querySelectorAll('div');
+notesArea.addEventListener('input', (e) => {
+  if (e.inputType !== 'insertReplacementText') { // Avoid loop if we were highlighting (though we blur)
+    saveNotesDebounced();
+  }
+});
 
-  if (query.length < 2) {
-    lines.forEach(line => line.classList.remove('hidden-line'));
+// New Note Button
+$('#addNote')?.addEventListener('click', () => {
+  const currentText = getNotesText();
+  notesArea.innerText = '- \n' + currentText;
+  notesArea.focus();
+  // Set cursor after "- "
+  const range = document.createRange();
+  const sel = window.getSelection();
+  if (notesArea.firstChild) {
+    range.setStart(notesArea.firstChild, 2);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+  saveNotesDebounced();
+});
+
+// Search and Highlight Notes
+notesSearch?.addEventListener('input', (e) => {
+  const term = e.target.value.trim();
+  const text = getNotesText();
+
+  if (!term) {
+    notesArea.innerText = text;
     return;
   }
 
-  // 2. Filtrar y resaltar
-  lines.forEach(line => {
-    const text = line.innerText.toLowerCase();
-    if (text.includes(query)) {
-      line.classList.remove('hidden-line');
-      // Resaltar dentro de la línea visible
-      const regex = new RegExp(`(${query})`, 'gi');
-      line.innerHTML = line.innerHTML.replace(regex, '<span class="search-match">$1</span>');
-    } else {
-      line.classList.add('hidden-line');
-    }
-  });
+  // Escape regex chars
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escaped})`, 'gi');
+
+  // Highlight using innerHTML
+  // We use textContent trick to avoid XSS if the notes have accidental HTML
+  const temp = document.createElement('div');
+  temp.textContent = text;
+  const safeText = temp.innerHTML;
+
+  notesArea.innerHTML = safeText.replace(regex, '<mark>$1</mark>');
+
+  // Scroll to first match
+  const firstMark = notesArea.querySelector('mark');
+  if (firstMark) {
+    firstMark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 });
 
+// ====== Recargar CSV desde la conexión actual (carpeta o archivo) ======
 // ====== Recargar desde DB ======
 async function reloadFromDb(note = 'sincronizado') {
   if (!isDbConnected()) return;
@@ -1182,8 +1128,8 @@ async function reloadFromDb(note = 'sincronizado') {
     if (note === 'auto-sync' && document.activeElement !== notesArea) {
       try {
         const serverNote = await getNote();
-        if (serverNote !== notesArea.value) {
-          notesArea.value = serverNote;
+        if (serverNote !== getNotesText()) {
+          notesArea.innerText = serverNote;
           localStorage.setItem(NOTES_KEY, serverNote);
           notesStatus.textContent = 'Sincronizado ' + new Date().toLocaleTimeString();
         }
