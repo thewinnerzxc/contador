@@ -576,6 +576,12 @@ select.typeSel.t3 {
   color: #fff;
 }
 
+.btn.yellow {
+  background: var(--t3);
+  border-color: var(--t3);
+  color: #010101;
+}
+
 .btn.warn {
   background: #f59e0b20;
   border-color: #f59e0b;
