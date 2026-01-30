@@ -64,8 +64,21 @@ export default function Dashboard() {
                     return;
                 }
                 if (Array.isArray(data)) {
-                    const unique = Array.from(new Map(data.map(item => [item.id, item])).values());
-                    setRows(unique.sort((a, b) => b.id - a.id));
+                    setRows(prev => {
+                        // Preserve optimistic records (calculated as IDs > 1e12)
+                        const optimistic = prev.filter(r => r.id > 1000000000000);
+                        const incomingMap = new Map(data.map(item => [item.id, item]));
+
+                        // Merge: incoming data takes priority, but keep optimistic ones not yet in DB
+                        const merged = [...data];
+                        optimistic.forEach(opt => {
+                            if (!incomingMap.has(opt.id)) {
+                                merged.push(opt);
+                            }
+                        });
+
+                        return merged.sort((a, b) => b.id - a.id);
+                    });
                 }
             })
             .catch(err => console.error(err));
@@ -138,11 +151,17 @@ export default function Dashboard() {
             }
 
             setRows(prev => {
-                const exists = prev.some(r => r.id === saved.id && r.id !== tempId);
-                if (exists) {
+                const foundTemp = prev.some(r => r.id === tempId);
+                const foundSaved = prev.some(r => r.id === saved.id);
+
+                if (foundTemp) {
+                    // Replace tempId with the real saved record
                     return prev.map(r => r.id === tempId ? saved : r);
+                } else if (!foundSaved) {
+                    // tempId was lost (e.g. by another load), but record isn't in list yet
+                    return [saved, ...prev].sort((a, b) => b.id - a.id);
                 }
-                return prev.map(r => r.id === tempId ? saved : r);
+                return prev;
             });
         } catch (e) {
             console.error(e);

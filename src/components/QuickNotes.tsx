@@ -13,7 +13,10 @@ export default function QuickNotes() {
         fetch('/api/notes', { headers: { 'X-Neon-Url': neonUrl } })
             .then(res => res.json())
             .then(data => {
-                if (data.content) setNote(data.content);
+                // Only load if user hasn't started typing something else
+                if (data.content) {
+                    setNote(prev => prev === '' ? data.content : prev);
+                }
             })
             .catch(err => console.error(err));
     }, []);

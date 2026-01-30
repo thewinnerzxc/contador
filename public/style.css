@@ -546,6 +546,11 @@ select.typeSel.t3 {
   border-radius: 2px;
 }
 
+.notes-area::selection {
+  background: var(--t3);
+  color: #000;
+}
+
 /* Botones extra de búsqueda */
 .row-btns {
   display: flex;

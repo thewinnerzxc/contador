@@ -1031,6 +1031,51 @@ notesArea.addEventListener('keydown', (e) => {
   }
 });
 
+notesArea.addEventListener('copy', (e) => {
+  const text = window.getSelection().toString();
+  if (text && e.clipboardData) {
+    e.preventDefault();
+    e.clipboardData.setData('text/plain', text);
+  }
+});
+
+notesArea.addEventListener('click', (e) => {
+  const sel = window.getSelection();
+  if (!sel.isCollapsed || !sel.rangeCount) return;
+
+  const range = sel.getRangeAt(0);
+  const node = range.startContainer;
+  // In contenteditable, it's usually a text node after focus()
+  if (node.nodeType !== Node.TEXT_NODE) return;
+
+  const text = node.textContent;
+  const off = range.startOffset;
+
+  // Find boundaries of the current line
+  let start = text.lastIndexOf('\n', off - 1) + 1;
+  let end = text.indexOf('\n', off);
+  if (end === -1) end = text.length;
+
+  const line = text.substring(start, end);
+  const match = line.match(/^(\s*-\s*)/);
+  if (match) {
+    const bulletLen = match[0].length;
+
+    // Select the text PART of the line (excluding "- ")
+    const newRange = document.createRange();
+    newRange.setStart(node, start + bulletLen);
+    newRange.setEnd(node, end);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+
+    const plain = text.substring(start + bulletLen, end).trim();
+    if (plain) {
+      copyToClipboard(plain);
+      setStatus('Copiado: ' + plain, true);
+    }
+  }
+});
+
 notesArea.addEventListener('paste', (e) => {
   e.preventDefault();
   const data = (e.clipboardData || window.clipboardData)?.getData('text') || '';
@@ -1045,7 +1090,10 @@ notesArea.addEventListener('paste', (e) => {
     : data;
 
   const sel = window.getSelection();
+  if (!sel.rangeCount) return;
   const range = sel.getRangeAt(0);
+  range.deleteContents();
+
   const textNode = document.createTextNode(processed);
   range.insertNode(textNode);
   range.setStartAfter(textNode);
