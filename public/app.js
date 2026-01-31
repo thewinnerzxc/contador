@@ -1069,10 +1069,6 @@ notesArea.addEventListener('click', (e) => {
     sel.addRange(newRange);
 
     const plain = text.substring(start + bulletLen, end).trim();
-    if (plain) {
-      copyToClipboard(plain);
-      setStatus('Copiado: ' + plain, true);
-    }
   }
 });
 
