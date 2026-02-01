@@ -1156,16 +1156,12 @@ notesSearch?.addEventListener('input', (e) => {
 async function reloadFromDb(note = 'sincronizado') {
   if (!isDbConnected()) return;
 
-  // Evitar recarga si el usuario está editando
+  // Evitar recarga si el usuario está editando tabla
   if (document.activeElement && document.activeElement.closest('td.editable')) {
     return;
   }
 
-  // Evitar recarga si hubo interacción local reciente (Fix "edits lost")
-  if (Date.now() - lastLocalInteractionTime < SYNC_GRACE_PERIOD) {
-    if (note !== 'auto-sync') console.warn('Sync skipped due to local activity');
-    return;
-  }
+  const interactionTimeAtStart = lastLocalInteractionTime; // Snapshot before fetch
 
   try {
     // 1. Sync Notas (si no está escribiendo en ellas)
@@ -1182,6 +1178,19 @@ async function reloadFromDb(note = 'sincronizado') {
 
     // 2. Sync Tabla
     let arr = await fetchAll();
+
+    // Check if a local interaction happened DURING the fetch
+    if (lastLocalInteractionTime !== interactionTimeAtStart) {
+      if (note !== 'auto-sync') console.warn('Sync ignored: local interaction occurred during fetch');
+      return;
+    }
+
+    // Double check grace period (standard check)
+    if (Date.now() - lastLocalInteractionTime < SYNC_GRACE_PERIOD) {
+      if (note !== 'auto-sync') console.warn('Sync skipped due to local activity');
+      return;
+    }
+
     if (Array.isArray(arr)) {
       const newRows = arr.map((it, idx) => sanitizeRow(it, idx));
 
@@ -1225,8 +1234,6 @@ async function reloadFromDb(note = 'sincronizado') {
       });
       contacts.forEach(c => {
         const k = cleanEmail(c.email) || digitsOnly(c.whatsapp);
-        // Si ya existe, podríamos sobreescribir o ignorar. 
-        // Sobreescribir parece mejor para traer novedades.
         if (k) map.set(k, { email: c.email || '', whatsapp: c.whatsapp || '' });
       });
       savePairs([...map.values()]);
