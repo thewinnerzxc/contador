@@ -303,12 +303,39 @@ function buildDir() {
   pairs.forEach(p => push(p.email, p.whatsapp));
 }
 
-// CSV descarga
-function downloadCSV() {
-  const blob = new Blob([toCSV(rows)], { type: 'text/csv;charset=utf-8' });
+// Descarga en formato Excel compatible (CSV con sep=; y BOM)
+function downloadExcel() {
+  const BOM = '\uFEFF';
+  const header = ['fecha', 'tipo', 'email', 'whatsapp', 'estado', 'comentario'];
+  const lines = ['sep=;', header.join(';')];
+
+  // Ordenar cronológicamente descendente (más recientes primero)
+  const sortedRows = [...rows].sort((a, b) => {
+    const fa = String(a.fecha || '');
+    const fb = String(b.fecha || '');
+    return fb.localeCompare(fa) || (b.id - a.id);
+  });
+
+  function q(v) {
+    const s = (v ?? '').toString();
+    return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  }
+
+  for (const r of sortedRows) {
+    lines.push([
+      q(r.fecha),
+      q(r.tipo),
+      q(r.email),
+      r.whatsapp ? `="${r.whatsapp}"` : '',
+      q(r.estado ? 'completado' : 'pendiente'),
+      q(r.comentario)
+    ].join(';'));
+  }
+
+  const blob = new Blob([BOM + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'activities.csv';
+  a.download = 'contador_actividades.csv';
   a.click();
   URL.revokeObjectURL(a.href);
 }
@@ -702,6 +729,17 @@ const clearAllActive = () => {
 
 clearAllFieldsBtn?.addEventListener('click', clearAllActive);
 
+// Eventos de botones de cabecera y pie de página
+$('#downloadCSV')?.addEventListener('click', downloadExcel);
+$('#btnSync')?.addEventListener('click', () => reloadFromDb('sincronizado'));
+$('#saveNow')?.addEventListener('click', async () => {
+  await saveNotes();
+  if (isDbConnected()) {
+    await reloadFromDb('sincronizado');
+  }
+  setStatus('Guardado y sincronizado manualmente', true);
+});
+
 // ESC key support
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
@@ -901,7 +939,19 @@ if (waOpen) {
   waOpen.addEventListener('click', () => {
     const link = buildWaLink(waQuick?.value || '');
     if (!link) { setStatus('Ingresa un número válido', false); return; }
-    window.open(link, '_blank', 'noopener,noreferrer');
+    
+    const isElectron = typeof process !== 'undefined' && process.versions && process.versions.electron;
+    if (isElectron) {
+      try {
+        const { exec } = require('child_process');
+        exec(`start msedge "${link}"`);
+      } catch (err) {
+        console.error('Error opening in Edge:', err);
+        window.open(link, 'whatsapp_web_tab');
+      }
+    } else {
+      window.open(link, 'whatsapp_web_tab');
+    }
   });
 }
 if (waClear) {
