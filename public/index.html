@@ -177,8 +177,6 @@
     </div>
   </dialog>
 
-
-
   <!-- Diálogo Auth -->
   <dialog id="dlgAuth" class="dialog" style="text-align:center;">
     <h3>Acceso Restringido</h3>
@@ -188,7 +186,17 @@
     <button id="btnAuth" class="btn primary">Ingresar</button>
   </dialog>
 
+  <!-- Diálogo Prompt genérico para Electron -->
+  <dialog id="dlgPrompt" class="dialog" style="max-width: 400px;">
+    <h3 id="promptTitle">Ingresar dato</h3>
+    <input type="text" id="promptInput" style="width: 100%; margin: 15px 0; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--input-bg); color: var(--ink); font-size: 15px;" />
+    <div class="actions-end">
+      <button id="promptCancel" class="btn">Cancelar</button>
+      <button id="promptConfirm" class="btn primary">Aceptar</button>
+    </div>
+  </dialog>
+
   <script type="module" src="./app.js"></script>
 </body>
-
 </html>
+

@@ -96,6 +96,56 @@ function checkAuth() {
   dlgAuth.showModal();
 }
 
+// Reusable custom prompt helper since Electron doesn't support window.prompt()
+function showPrompt(title, defaultValue = '') {
+  return new Promise((resolve) => {
+    const dlg = $('#dlgPrompt');
+    const titleEl = $('#promptTitle');
+    const inputEl = $('#promptInput');
+    const btnCancel = $('#promptCancel');
+    const btnConfirm = $('#promptConfirm');
+
+    titleEl.textContent = title;
+    inputEl.value = defaultValue;
+
+    const onConfirm = () => {
+      cleanup();
+      resolve(inputEl.value);
+    };
+
+    const onCancel = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    const onKeyDown = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        onConfirm();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        onCancel();
+      }
+    };
+
+    const cleanup = () => {
+      btnConfirm.removeEventListener('click', onConfirm);
+      btnCancel.removeEventListener('click', onCancel);
+      inputEl.removeEventListener('keydown', onKeyDown);
+      dlg.close();
+    };
+
+    btnConfirm.addEventListener('click', onConfirm);
+    btnCancel.addEventListener('click', onCancel);
+    inputEl.addEventListener('keydown', onKeyDown);
+
+    dlg.showModal();
+    inputEl.focus();
+    inputEl.select();
+  });
+}
+
+
 btnAuth?.addEventListener('click', () => {
   if (authPin.value === '4147') {
     sessionStorage.setItem('ms_auth', 'ok');
@@ -459,12 +509,12 @@ function render() {
 
     const emailHtml = r.email
       ? `<span class="copy-mail" data-email="${esc(r.email)}" title="Copiar email">${esc(r.email)}</span>`
-      : '';
+      : `<button class="btn-add-val btn-add-email" data-id="${r.id}" title="Agregar Email">+ Email</button>`;
 
     const waDigits = digitsOnly(r.whatsapp);
     const waHtml = waDigits
       ? `<span class="copy-wa" data-wa="${waDigits}" title="Copiar WhatsApp y usar en Link rápido">${esc(waDigits)}</span>`
-      : '';
+      : `<button class="btn-add-val btn-add-wa" data-id="${r.id}" title="Agregar WhatsApp">+ WA</button>`;
 
     const stTitle = r.estado ? 'Completado' : 'Pendiente';
 
@@ -510,6 +560,24 @@ function render() {
     });
   });
 
+  // Agregar email desde la tabla
+  tbody.querySelectorAll('.btn-add-email').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = +btn.dataset.id;
+      const val = await showPrompt('Ingresa el Email para esta actividad:');
+      if (val === null) return; // canceló
+      const cleanVal = val.trim();
+      if (cleanVal && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanVal)) {
+        setStatus('Email no válido', false);
+        alert('Email no válido');
+        return;
+      }
+      updateField(id, 'email', cleanVal);
+      setStatus('Email agregado', true);
+    });
+  });
+
   // Copiar WhatsApp y preparar "Link rápido"
   tbody.querySelectorAll('.copy-wa').forEach(el => {
     el.addEventListener('click', async () => {
@@ -518,6 +586,19 @@ function render() {
       await copyToClipboard(n);
       setQuickWaFromTable(n, el);
       setStatus('WhatsApp copiado y preparado en Link rápido', true);
+    });
+  });
+
+  // Agregar WhatsApp desde la tabla
+  tbody.querySelectorAll('.btn-add-wa').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = +btn.dataset.id;
+      const val = await showPrompt('Ingresa el WhatsApp para esta actividad (solo números):');
+      if (val === null) return; // canceló
+      const cleanVal = digitsOnly(val);
+      updateField(id, 'whatsapp', cleanVal);
+      setStatus('WhatsApp agregado', true);
     });
   });
 
@@ -761,9 +842,10 @@ const handleTagPaste = async (kind) => {
   try {
     const text = await navigator.clipboard.readText();
     if (text) {
-      // Logic to decide where to paste: if looks like email, put in em, if digits put in wa
       const clean = text.trim();
-      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
+      if (clean.startsWith('@')) {
+        co.value = `Telegram: ${clean} ... `;
+      } else if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
         em.value = clean;
         maybeFillWaFromEmail(em, wa);
       } else if (/\d/.test(clean)) {
@@ -775,8 +857,11 @@ const handleTagPaste = async (kind) => {
       }
       setStatus('Pegado del portapapeles', true);
     }
-    // Final focus on comment field
+    // Final focus on comment field and place cursor at the end
     co.focus();
+    if (co.value) {
+      co.setSelectionRange(co.value.length, co.value.length);
+    }
   } catch (err) {
     console.error('Clipboard paste failed:', err);
     co.focus(); // Focus even on error

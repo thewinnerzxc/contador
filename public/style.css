@@ -1016,3 +1016,23 @@ dialog::backdrop {
   background: var(--t3);
   color: #000;
 }
+
+/* Botones para agregar email o whatsapp desde la tabla */
+.btn-add-val {
+  background: transparent;
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  transition: all 0.2s;
+  display: inline-block;
+}
+
+.btn-add-val:hover {
+  color: var(--ink);
+  border-color: var(--muted);
+  background: rgba(255, 255, 255, 0.05);
+}
