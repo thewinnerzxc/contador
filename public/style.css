@@ -401,15 +401,56 @@ footer {
 }
 
 /* Celdas editables */
-td.editable {
+.editable {
   cursor: text;
+  flex: 1;
+  min-height: 20px;
+  outline: none;
+  border-radius: 6px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  display: inline-block;
+  vertical-align: top;
+  width: 100%;
 }
 
-td.editable:focus {
+.editable:focus {
   outline: 2px solid var(--t1);
   background: #1e1b4b;
   /* dark blue selection */
-  border-radius: 6px;
+}
+
+.comment-wrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+
+.btn-comment-add {
+  background: transparent;
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.btn-comment-add:hover {
+  color: #fff;
+  background: var(--violet-200);
+  border-color: var(--violet);
+  box-shadow: 0 0 8px var(--violet-200);
 }
 
 /* Select de tipo (dropdown coloreado) */

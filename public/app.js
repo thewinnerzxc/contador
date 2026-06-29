@@ -578,11 +578,25 @@ function render() {
             <span class="slider"></span>
           </label>
         </td>
-        <td class="editable" contenteditable="true" data-id="${r.id}" data-field="comentario">${formatCommentHTML(r.comentario)}</td>
+        <td class="comment-cell">
+          <div class="comment-wrapper">
+            <button class="btn-comment-add" data-id="${r.id}" title="Añadir comentario">+</button>
+            <div class="editable" contenteditable="true" data-id="${r.id}" data-field="comentario">${formatCommentHTML(r.comentario)}</div>
+          </div>
+        </td>
         <td><button class="btn" data-del="${r.id}">Eliminar</button></td>
       </tr>
     `;
   }).join('');
+
+  // Botón "+" para añadir comentario al inicio
+  tbody.querySelectorAll('.btn-comment-add').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = +btn.dataset.id;
+      startAddComment(id);
+    });
+  });
 
   // Render controles paginación
   renderPaginationControls(totalPages, totalItems);
@@ -674,23 +688,23 @@ function render() {
   });
 
   // Editables (solo comentario ahora)
-  tbody.querySelectorAll('td.editable').forEach(td => {
+  tbody.querySelectorAll('.editable').forEach(el => {
     const commit = () => {
-      const id = +td.dataset.id;
-      const field = td.dataset.field;   // "comentario"
-      let val = (td.textContent || '').trim();
+      const id = +el.dataset.id;
+      const field = el.dataset.field;   // "comentario"
+      let val = (el.textContent || '').trim();
       
       // Limpiar barras/pipes y espacios adicionales sobrantes al inicio o al final
       val = val.replace(/^[\s|]+|[\s|]+$/g, '').trim();
       
       updateField(id, field, val);
     };
-    td.addEventListener('blur', commit);
-    td.addEventListener('keydown', e => {
+    el.addEventListener('blur', commit);
+    el.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
         e.preventDefault();
         commit();
-        td.blur();
+        el.blur();
       }
     });
   });
@@ -1572,9 +1586,9 @@ function startAddComment(rowId) {
   // Re-renderizar la UI para pintar el " | " y dar clases correctas
   render();
 
-  // Encontrar el td editable en el DOM y hacer focus
+  // Encontrar el elemento editable en el DOM y hacer focus
   const tr = document.querySelector(`tr[data-id="${rowId}"]`);
-  const tdComment = tr?.querySelector('td[data-field="comentario"]');
+  const tdComment = tr?.querySelector('.editable[data-field="comentario"]');
   if (!tdComment) return;
 
   tdComment.focus();
