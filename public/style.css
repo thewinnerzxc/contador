@@ -1036,3 +1036,63 @@ dialog::backdrop {
   border-color: var(--muted);
   background: rgba(255, 255, 255, 0.05);
 }
+
+/* Custom Context Menu */
+.context-menu {
+  position: absolute;
+  background: rgba(30, 41, 59, 0.95); /* Slate 800 con transparencia */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+  border-radius: 10px;
+  min-width: 240px;
+  z-index: 10000;
+  overflow: hidden;
+  font-size: 14px;
+}
+.context-menu-list {
+  list-style: none;
+  margin: 0;
+  padding: 5px 0;
+}
+.context-menu-item {
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  color: var(--ink);
+  font-weight: 500;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.context-menu-item:hover {
+  background: var(--violet-200);
+  color: #fff;
+}
+.context-menu-divider {
+  height: 1px;
+  background: var(--line);
+  margin: 4px 0;
+}
+.context-menu-item.danger {
+  color: #f87171;
+}
+.context-menu-item.danger:hover {
+  background: #7f1d1d50;
+  color: #fca5a5;
+}
+
+/* Colores de Comentarios (Último, anteriores y contactos alternativos) */
+.comment-alt-contact {
+  color: #fbbf24; /* Amarillo sutil / Amber 400 */
+  font-weight: bold;
+}
+.comment-newest {
+  color: #38bdf8; /* Azul claro sutil para el último comentario */
+  font-weight: 500;
+}
+.comment-old {
+  color: var(--muted); /* Gris blanquecino para comentarios anteriores */
+}
+

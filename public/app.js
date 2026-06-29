@@ -459,6 +459,48 @@ function ymdLima(date = new Date()) {
   return `${p.year}-${p.month}-${p.day}`;
 }
 
+function formatCommentHTML(text) {
+  if (!text) return '';
+  const parts = text.split('|').map(p => p.trim());
+  
+  let commentIndex = 0;
+  const formattedParts = parts.map((part) => {
+    const isEmailAlt = /E-mail alterno:/i.test(part);
+    const isWaAlt = /WhatsApp alterno:/i.test(part);
+    
+    if (isEmailAlt || isWaAlt) {
+      return `<strong class="comment-alt-contact">${esc(part)}</strong>`;
+    } else {
+      if (commentIndex === 0) {
+        commentIndex++;
+        return `<span class="comment-newest">${esc(part)}</span>`;
+      } else {
+        return `<span class="comment-old">${esc(part)}</span>`;
+      }
+    }
+  });
+  
+  return formattedParts.join(' | ');
+}
+
+function updateRowFields(id, updates) {
+  const r = rows.find(x => x.id === id);
+  if (!r) return;
+  for (const [field, value] of Object.entries(updates)) {
+    r[field] = (field === 'whatsapp') ? digitsOnly(value) : value;
+  }
+  r.fecha = nowStr();
+  markLocalInteraction();
+  saveLocal(); buildDir(); render();
+  if (isDbConnected()) {
+    saveRow(r).then(() => setDbUI(true, 'actualizado'));
+    if (r.email && r.whatsapp) {
+      saveContactsBulk([{ email: r.email, whatsapp: r.whatsapp }])
+        .catch(err => console.error('Error guardando contacto al editar:', err));
+    }
+  }
+}
+
 // Helper edición
 function updateField(id, field, value) {
   const r = rows.find(x => x.id === id);
@@ -536,7 +578,7 @@ function render() {
             <span class="slider"></span>
           </label>
         </td>
-        <td class="editable" contenteditable="true" data-id="${r.id}" data-field="comentario">${esc(r.comentario)}</td>
+        <td class="editable" contenteditable="true" data-id="${r.id}" data-field="comentario">${formatCommentHTML(r.comentario)}</td>
         <td><button class="btn" data-del="${r.id}">Eliminar</button></td>
       </tr>
     `;
@@ -636,7 +678,11 @@ function render() {
     const commit = () => {
       const id = +td.dataset.id;
       const field = td.dataset.field;   // "comentario"
-      const val = (td.textContent || '').trim();
+      let val = (td.textContent || '').trim();
+      
+      // Limpiar barras/pipes y espacios adicionales sobrantes al inicio o al final
+      val = val.replace(/^[\s|]+|[\s|]+$/g, '').trim();
+      
       updateField(id, field, val);
     };
     td.addEventListener('blur', commit);
@@ -1447,3 +1493,326 @@ function startAutoSync() {
     setDbUI(false, 'Error conexión (ver consola)');
   }
 })();
+
+// ====== Lógica de Menú Contextual Personalizado (Email/WhatsApp Alternativos) ======
+const customContextMenu = $('#customContextMenu');
+const contextMenuList = $('#contextMenuList');
+
+function showContextMenu(e, items) {
+  contextMenuList.innerHTML = items.map(item => {
+    if (item.type === 'divider') {
+      return `<li class="context-menu-divider"></li>`;
+    }
+    const dangerClass = item.danger ? 'danger' : '';
+    return `<li class="context-menu-item ${dangerClass}" data-action="${item.action}">
+      <span>${item.icon}</span>
+      <span>${item.text}</span>
+    </li>`;
+  }).join('');
+
+  // Mostrar el menú
+  customContextMenu.style.display = 'block';
+  
+  // Calcular posición evitando salirse de la pantalla
+  const menuWidth = customContextMenu.offsetWidth || 240;
+  const menuHeight = customContextMenu.offsetHeight || 180;
+  
+  let left = e.pageX;
+  let top = e.pageY;
+  
+  if (left + menuWidth > window.innerWidth + window.scrollX) {
+    left = window.innerWidth + window.scrollX - menuWidth - 10;
+  }
+  if (top + menuHeight > window.innerHeight + window.scrollY) {
+    top = window.innerHeight + window.scrollY - menuHeight - 10;
+  }
+  
+  customContextMenu.style.left = `${left}px`;
+  customContextMenu.style.top = `${top}px`;
+
+  // Asignar controladores de eventos a las opciones
+  const menuItems = contextMenuList.querySelectorAll('.context-menu-item');
+  menuItems.forEach(el => {
+    el.addEventListener('click', () => {
+      const actionName = el.getAttribute('data-action');
+      const item = items.find(it => it.action === actionName);
+      if (item && item.handler) {
+        item.handler();
+      }
+      hideContextMenu();
+    });
+  });
+}
+
+function hideContextMenu() {
+  customContextMenu.style.display = 'none';
+}
+
+// Ocultar menú al hacer scroll o clic en otro sitio
+window.addEventListener('scroll', hideContextMenu);
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#customContextMenu')) {
+    hideContextMenu();
+  }
+});
+
+function startAddComment(rowId) {
+  const r = rows.find(x => x.id === rowId);
+  if (!r) return;
+
+  let currentText = (r.comentario || '').trim();
+  if (currentText) {
+    if (!currentText.startsWith('|') && !currentText.startsWith(' |')) {
+      r.comentario = ' | ' + currentText;
+    }
+  } else {
+    r.comentario = '';
+  }
+
+  // Re-renderizar la UI para pintar el " | " y dar clases correctas
+  render();
+
+  // Encontrar el td editable en el DOM y hacer focus
+  const tr = document.querySelector(`tr[data-id="${rowId}"]`);
+  const tdComment = tr?.querySelector('td[data-field="comentario"]');
+  if (!tdComment) return;
+
+  tdComment.focus();
+
+  // Posicionar cursor al inicio (antes del " | ")
+  try {
+    const range = document.createRange();
+    const sel = window.getSelection();
+    range.setStart(tdComment, 0);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  } catch (err) {
+    console.warn('Error setting caret position:', err);
+  }
+}
+
+// Delegación de Evento de Clic Derecho (contextmenu) en la tabla
+document.addEventListener('contextmenu', (e) => {
+  const mailEl = e.target.closest('.copy-mail');
+  const waEl = e.target.closest('.copy-wa');
+  
+  if (mailEl) {
+    e.preventDefault();
+    const rowId = +mailEl.closest('tr').dataset.id;
+    const currentVal = mailEl.getAttribute('data-email');
+    const r = rows.find(x => x.id === rowId);
+    if (!r) return;
+    
+    // Resaltar elemento en la tabla
+    clearTableHighlights();
+    mailEl.classList.add('picked');
+    lastPickedEmailEl = mailEl;
+
+    const options = [
+      {
+        icon: '💬',
+        text: 'Añadir comentario',
+        action: 'add_comment',
+        handler: () => {
+          startAddComment(rowId);
+        }
+      },
+      { type: 'divider' },
+      {
+        icon: '📋',
+        text: 'Copiar Email Principal',
+        action: 'copy',
+        handler: async () => {
+          await copyToClipboard(currentVal);
+          setStatus('Email copiado al portapapeles', true);
+        }
+      },
+      {
+        icon: '🔍',
+        text: 'Buscar por Email',
+        action: 'search',
+        handler: () => {
+          q = currentVal.trim();
+          qInp.value = q;
+          render();
+          const tableCard = $('#tableCard');
+          tableCard?.scrollIntoView({ behavior: 'smooth' });
+        }
+      },
+      { type: 'divider' },
+      {
+        icon: '📧',
+        text: 'Agregar Email Alterno',
+        action: 'add_alt',
+        handler: async () => {
+          const val = await showPrompt('Ingresa el Email alternativo:');
+          if (val === null) return;
+          const cleanVal = val.trim();
+          if (!cleanVal) return;
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanVal)) {
+            setStatus('Email no válido', false);
+            alert('Email no válido');
+            return;
+          }
+          
+          let currentComment = (r.comentario || '').trim();
+          const altText = `E-mail alterno: ${cleanVal}`;
+          if (currentComment) {
+            if (!currentComment.endsWith('|') && !currentComment.endsWith(' |')) {
+              currentComment += ' | ';
+            }
+            currentComment += altText;
+          } else {
+            currentComment = altText;
+          }
+          
+          updateField(rowId, 'comentario', currentComment);
+          setStatus('Email alternativo agregado', true);
+        }
+      },
+      {
+        icon: '✏️',
+        text: 'Cambiar Email Principal',
+        action: 'change_primary',
+        handler: async () => {
+          const val = await showPrompt('Modificar Email principal:', currentVal);
+          if (val === null) return;
+          const cleanVal = val.trim();
+          if (!cleanVal) return;
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanVal)) {
+            setStatus('Email no válido', false);
+            alert('Email no válido');
+            return;
+          }
+          
+          // Mover anterior a alternativo en el comentario
+          let currentComment = (r.comentario || '').trim();
+          const altText = `E-mail alterno: ${currentVal}`;
+          if (currentComment) {
+            if (!currentComment.endsWith('|') && !currentComment.endsWith(' |')) {
+              currentComment += ' | ';
+            }
+            currentComment += altText;
+          } else {
+            currentComment = altText;
+          }
+          
+          updateRowFields(rowId, {
+            email: cleanVal,
+            comentario: currentComment
+          });
+          setStatus('Email principal modificado y anterior guardado como alterno', true);
+        }
+      }
+    ];
+    showContextMenu(e, options);
+  } else if (waEl) {
+    e.preventDefault();
+    const rowId = +waEl.closest('tr').dataset.id;
+    const currentVal = waEl.getAttribute('data-wa');
+    const r = rows.find(x => x.id === rowId);
+    if (!r) return;
+
+    // Resaltar elemento y preparar en el buscador de WhatsApp del panel
+    clearTableHighlights();
+    waEl.classList.add('picked');
+    lastPickedWaEl = waEl;
+    if (waQuick) {
+      waQuick.value = digitsOnly(currentVal);
+      waQuick.classList.add('picked');
+    }
+
+    const options = [
+      {
+        icon: '💬',
+        text: 'Añadir comentario',
+        action: 'add_comment',
+        handler: () => {
+          startAddComment(rowId);
+        }
+      },
+      { type: 'divider' },
+      {
+        icon: '📋',
+        text: 'Copiar WhatsApp Principal',
+        action: 'copy',
+        handler: async () => {
+          await copyToClipboard(currentVal);
+          setStatus('WhatsApp copiado al portapapeles', true);
+        }
+      },
+      {
+        icon: '🔍',
+        text: 'Buscar por WhatsApp',
+        action: 'search',
+        handler: () => {
+          q = currentVal.trim();
+          qInp.value = q;
+          render();
+          const tableCard = $('#tableCard');
+          tableCard?.scrollIntoView({ behavior: 'smooth' });
+        }
+      },
+      { type: 'divider' },
+      {
+        icon: '💬',
+        text: 'Agregar WhatsApp Alterno',
+        action: 'add_alt',
+        handler: async () => {
+          const val = await showPrompt('Ingresa el WhatsApp alternativo (solo números):');
+          if (val === null) return;
+          const cleanVal = digitsOnly(val);
+          if (!cleanVal) return;
+          
+          let currentComment = (r.comentario || '').trim();
+          const altText = `WhatsApp alterno: ${cleanVal}`;
+          if (currentComment) {
+            if (!currentComment.endsWith('|') && !currentComment.endsWith(' |')) {
+              currentComment += ' | ';
+            }
+            currentComment += altText;
+          } else {
+            currentComment = altText;
+          }
+          
+          updateField(rowId, 'comentario', currentComment);
+          setStatus('WhatsApp alternativo agregado', true);
+        }
+      },
+      {
+        icon: '✏️',
+        text: 'Cambiar WhatsApp Principal',
+        action: 'change_primary',
+        handler: async () => {
+          const val = await showPrompt('Modificar WhatsApp principal (solo números):', currentVal);
+          if (val === null) return;
+          const cleanVal = digitsOnly(val);
+          if (!cleanVal) return;
+          
+          // Mover anterior a alternativo en el comentario
+          let currentComment = (r.comentario || '').trim();
+          const altText = `WhatsApp alterno: ${currentVal}`;
+          if (currentComment) {
+            if (!currentComment.endsWith('|') && !currentComment.endsWith(' |')) {
+              currentComment += ' | ';
+            }
+            currentComment += altText;
+          } else {
+            currentComment = altText;
+          }
+          
+          updateRowFields(rowId, {
+            whatsapp: cleanVal,
+            comentario: currentComment
+          });
+          setStatus('WhatsApp principal modificado y anterior guardado como alterno', true);
+        }
+      }
+    ];
+    showContextMenu(e, options);
+  } else {
+    hideContextMenu();
+  }
+});
+
