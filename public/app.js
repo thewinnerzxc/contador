@@ -1686,6 +1686,31 @@ document.addEventListener('contextmenu', (e) => {
         }
       },
       {
+        icon: '✈️',
+        text: 'Agregar Telegram',
+        action: 'add_telegram',
+        handler: async () => {
+          const val = await showPrompt('Ingresa el Telegram (ejemplo: @Daghreeri):');
+          if (val === null) return;
+          const cleanVal = val.trim();
+          if (!cleanVal) return;
+          
+          let currentComment = (r.comentario || '').trim();
+          const altText = `Telegram: ${cleanVal}`;
+          if (currentComment) {
+            if (!currentComment.endsWith('|') && !currentComment.endsWith(' |')) {
+              currentComment += ' | ';
+            }
+            currentComment += altText;
+          } else {
+            currentComment = altText;
+          }
+          
+          updateField(rowId, 'comentario', currentComment);
+          setStatus('Telegram agregado', true);
+        }
+      },
+      {
         icon: '✏️',
         text: 'Cambiar Email Principal',
         action: 'change_primary',
@@ -1792,6 +1817,31 @@ document.addEventListener('contextmenu', (e) => {
           
           updateField(rowId, 'comentario', currentComment);
           setStatus('WhatsApp alternativo agregado', true);
+        }
+      },
+      {
+        icon: '✈️',
+        text: 'Agregar Telegram',
+        action: 'add_telegram',
+        handler: async () => {
+          const val = await showPrompt('Ingresa el Telegram (ejemplo: @Daghreeri):');
+          if (val === null) return;
+          const cleanVal = val.trim();
+          if (!cleanVal) return;
+          
+          let currentComment = (r.comentario || '').trim();
+          const altText = `Telegram: ${cleanVal}`;
+          if (currentComment) {
+            if (!currentComment.endsWith('|') && !currentComment.endsWith(' |')) {
+              currentComment += ' | ';
+            }
+            currentComment += altText;
+          } else {
+            currentComment = altText;
+          }
+          
+          updateField(rowId, 'comentario', currentComment);
+          setStatus('Telegram agregado', true);
         }
       },
       {
