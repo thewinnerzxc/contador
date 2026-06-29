@@ -433,7 +433,7 @@ footer {
   border: 1px dashed var(--line);
   width: 20px;
   height: 20px;
-  border-radius: 50%;
+  border-radius: 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -448,9 +448,9 @@ footer {
 
 .btn-comment-add:hover {
   color: #fff;
-  background: var(--violet-200);
-  border-color: var(--violet);
-  box-shadow: 0 0 8px var(--violet-200);
+  background: #f59e0b;
+  border-color: #f59e0b;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
 }
 
 /* Select de tipo (dropdown coloreado) */
