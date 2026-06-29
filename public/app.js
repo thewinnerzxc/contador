@@ -1352,7 +1352,7 @@ async function reloadFromDb(note = 'sincronizado') {
   if (!isDbConnected()) return;
 
   // Evitar recarga si el usuario está editando tabla
-  if (document.activeElement && document.activeElement.closest('td.editable')) {
+  if (document.activeElement && document.activeElement.closest('.editable')) {
     return;
   }
 
