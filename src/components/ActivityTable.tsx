@@ -2,6 +2,7 @@
 
 import { Activity } from '@/types';
 import { useState } from 'react';
+import { formatDateHTML } from '@/lib/utils';
 
 interface ActivityTableProps {
     rows: Activity[];
@@ -51,7 +52,7 @@ function TableRow({ row, idx, onDelete, onUpdate, onWaClick }: {
     const [nickCopied, setNickCopied] = useState(false);
     const [waPicked, setWaPicked] = useState(false); // Using 'picked' for purple style
 
-    const kind = row.tipo === 'Resuelta su consulta de WhatsApp' ? 2 : (row.tipo === 'Resuelta consulta de Email' ? 3 : 0);
+    const kind = row.tipo === 'Resuelta su consulta de WhatsApp' || row.tipo === 'W' || row.tipo === 'WhatsApp' ? 2 : (row.tipo === 'Resuelta consulta de Email' || row.tipo === 'E' || row.tipo === 'Email' ? 3 : 0);
     const badgeClass = kind === 2 ? 't2' : (kind === 3 ? 't3' : 'gray');
     const cssClass = kind === 2 ? 'type-2' : (kind === 3 ? 'type-3' : '');
 
@@ -83,7 +84,7 @@ function TableRow({ row, idx, onDelete, onUpdate, onWaClick }: {
     return (
         <tr className={cssClass}>
             <td>{idx}</td>
-            <td><span className="muted">{row.fecha}</span></td>
+            <td><span className="muted" dangerouslySetInnerHTML={{ __html: formatDateHTML(row.fecha) }} /></td>
             <td>
                 <select
                     className={`typeSel ${badgeClass}`}
@@ -94,8 +95,8 @@ function TableRow({ row, idx, onDelete, onUpdate, onWaClick }: {
                         onUpdate(row.id, { tipo: label });
                     }}
                 >
-                    <option value="2">WhatsApp</option>
-                    <option value="3">Email</option>
+                    <option value="2">W</option>
+                    <option value="3">E</option>
                 </select>
             </td>
             <td>

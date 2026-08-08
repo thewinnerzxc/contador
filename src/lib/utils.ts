@@ -27,6 +27,23 @@ export function nowStr(): string {
         second: '2-digit',
         hour12: false
     });
-    const parts = Object.fromEntries(fmt.formatToParts(d).map(p => [p.type, p.value]));
     return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
+}
+
+export function formatDateHTML(str: string): string {
+    if (!str) return '';
+    const s = String(str).trim();
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+|T)?(\d{2}:\d{2}:\d{2})?/);
+    if (m) {
+        const [, y, mm, dd, time] = m;
+        const dateBold = `<strong>${dd}-${mm}-${y}</strong>`;
+        return time ? `${dateBold} ${time}` : dateBold;
+    }
+    const m2 = s.match(/^(\d{2})-(\d{2})-(\d{4})(?:\s+|T)?(\d{2}:\d{2}:\d{2})?/);
+    if (m2) {
+        const [, dd, mm, y, time] = m2;
+        const dateBold = `<strong>${dd}-${mm}-${y}</strong>`;
+        return time ? `${dateBold} ${time}` : dateBold;
+    }
+    return s;
 }

@@ -206,15 +206,33 @@ function setDbUI(ok, note = '') {
 
 // Normalizaciones base
 const TYPES = {
-  2: 'WhatsApp',
-  3: 'Email'
+  2: 'W',
+  3: 'E'
 };
 const KIND_BY_LABEL = label => {
   const l = (label || '').trim();
-  if (l === 'Resuelta consulta de Email' || l === TYPES[3]) return 3;
-  if (l === 'Resuelta su consulta de WhatsApp' || l === TYPES[2]) return 2;
-  return 2; // fallback a WhatsApp
+  if (l === 'Resuelta consulta de Email' || l === 'Email' || l === TYPES[3] || l === 'E') return 3;
+  if (l === 'Resuelta su consulta de WhatsApp' || l === 'WhatsApp' || l === TYPES[2] || l === 'W') return 2;
+  return 2; // fallback a W
 };
+
+function formatDateHTML(str) {
+  if (!str) return '';
+  const s = String(str).trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+|T)?(\d{2}:\d{2}:\d{2})?/);
+  if (m) {
+    const [, y, mm, dd, time] = m;
+    const dateBold = `<strong>${dd}-${mm}-${y}</strong>`;
+    return time ? `${dateBold} ${time}` : dateBold;
+  }
+  const m2 = s.match(/^(\d{2})-(\d{2})-(\d{4})(?:\s+|T)?(\d{2}:\d{2}:\d{2})?/);
+  if (m2) {
+    const [, dd, mm, y, time] = m2;
+    const dateBold = `<strong>${dd}-${mm}-${y}</strong>`;
+    return time ? `${dateBold} ${time}` : dateBold;
+  }
+  return esc(s);
+}
 
 const cleanEmail = s => (s || '').trim().toLowerCase();
 
@@ -562,18 +580,20 @@ function render() {
       ? `<span class="copy-wa" data-wa="${waDigits}" title="Copiar WhatsApp y usar en Link rápido">${esc(waDigits)}</span>`
       : `<button class="btn-add-val btn-add-wa" data-id="${r.id}" title="Agregar WhatsApp">+ WA</button>`;
 
-    const nickHtml = `<span class="copy-mail copy-nick" data-nick="${esc(r.nickname || '')}" title="Copiar nickname">${esc(r.nickname || '')}</span>`;
+    const nickHtml = r.nickname
+      ? `<span class="copy-nick" data-nick="${esc(r.nickname)}" title="Click para copiar nickname">${esc(r.nickname)}</span>`
+      : '';
 
     const stTitle = r.estado ? 'Completado' : 'Pendiente';
 
     return `
       <tr data-id="${r.id}" class="${rowClass}">
         <td>${nDesc}</td>
-        <td><span class="muted">${r.fecha}</span></td>
+        <td><span class="muted">${formatDateHTML(r.fecha)}</span></td>
         <td>
           <select class="typeSel ${selClass}" data-id="${r.id}">
-            <option value="2" ${kind === 2 ? 'selected' : ''}>${esc(TYPES[2])}</option>
-            <option value="3" ${kind === 3 ? 'selected' : ''}>${esc(TYPES[3])}</option>
+            <option value="2" ${kind === 2 ? 'selected' : ''}>W</option>
+            <option value="3" ${kind === 3 ? 'selected' : ''}>E</option>
           </select>
         </td>
         <td>${emailHtml}</td>
@@ -620,6 +640,22 @@ function render() {
       lastPickedEmailEl = el;
 
       setStatus('Email copiado al portapapeles', true);
+    });
+  });
+
+  // Copiar Nickname al click
+  tbody.querySelectorAll('.copy-nick').forEach(el => {
+    el.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const nick = el.getAttribute('data-nick') || '';
+      if (!nick) return;
+      await copyToClipboard(nick);
+
+      clearTableHighlights();
+      el.classList.add('picked');
+      lastPickedEmailEl = el;
+
+      setStatus('Nickname copiado al portapapeles: ' + nick, true);
     });
   });
 
