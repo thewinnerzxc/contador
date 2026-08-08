@@ -5,14 +5,14 @@ import { ActivityType, Activity } from '@/types';
 import { digitsOnly } from '@/lib/utils';
 
 interface ActivityFormProps {
-    onAdd: (kind: ActivityType, email: string, wa: string, comment: string) => void;
+    onAdd: (kind: ActivityType, email: string, wa: string, comment: string, nickname?: string) => void;
     rows: Activity[];
 }
 
 export default function ActivityForm({ onAdd, rows }: ActivityFormProps) {
     // Shared State Lifted Up
-    const [row1, setRow1] = useState({ email: '', wa: '', comment: '' });
-    const [row2, setRow2] = useState({ email: '', wa: '', comment: '' });
+    const [row1, setRow1] = useState({ email: '', wa: '', nickname: '', comment: '' });
+    const [row2, setRow2] = useState({ email: '', wa: '', nickname: '', comment: '' });
     const [btnState1, setBtnState1] = useState('Agregar');
     const [btnState2, setBtnState2] = useState('Agregar');
 
@@ -33,8 +33,8 @@ export default function ActivityForm({ onAdd, rows }: ActivityFormProps) {
 
     const handleClearAll = () => {
         if (confirm('¿Limpiar todos los campos de registro?')) {
-            setRow1({ email: '', wa: '', comment: '' });
-            setRow2({ email: '', wa: '', comment: '' });
+            setRow1({ email: '', wa: '', nickname: '', comment: '' });
+            setRow2({ email: '', wa: '', nickname: '', comment: '' });
         }
     };
 
@@ -48,7 +48,7 @@ export default function ActivityForm({ onAdd, rows }: ActivityFormProps) {
 
             {/* Row 1: WhatsApp */}
             <div className="row t2">
-                <div className="tag">WhatsApp</div>
+                <div className="tag">1) WhatsApp</div>
                 <FormRow
                     kind="Resuelta su consulta de WhatsApp"
                     data={row1}
@@ -64,7 +64,7 @@ export default function ActivityForm({ onAdd, rows }: ActivityFormProps) {
 
             {/* Row 2: Email */}
             <div className="row t3">
-                <div className="tag">Email</div>
+                <div className="tag">2) Email</div>
                 <FormRow
                     kind="Resuelta consulta de Email"
                     data={row2}
@@ -82,7 +82,7 @@ export default function ActivityForm({ onAdd, rows }: ActivityFormProps) {
 }
 
 // Controlled Sub-component
-interface RowData { email: string, wa: string, comment: string }
+interface RowData { email: string, wa: string, nickname: string, comment: string }
 
 function FormRow({ kind, data, setData, btnText, setBtnText, onAdd, btnColor, mapEmailToWa, mapWaToEmail }: {
     kind: ActivityType,
@@ -90,14 +90,14 @@ function FormRow({ kind, data, setData, btnText, setBtnText, onAdd, btnColor, ma
     setData: (d: RowData) => void,
     btnText: string,
     setBtnText: (s: string) => void,
-    onAdd: (kind: ActivityType, email: string, wa: string, comment: string) => void,
+    onAdd: (kind: ActivityType, email: string, wa: string, comment: string, nickname?: string) => void,
     btnColor: string,
     mapEmailToWa: Map<string, string>,
     mapWaToEmail: Map<string, string>
 }) {
     const handleSubmit = () => {
-        if (!data.email.trim() && !data.wa.trim()) return;
-        onAdd(kind, data.email, data.wa, data.comment);
+        if (!data.email.trim() && !data.wa.trim() && !data.nickname.trim()) return;
+        onAdd(kind, data.email, data.wa, data.comment, data.nickname);
         setBtnText('Agregado');
         setTimeout(() => setBtnText('Agregar'), 1500);
         // DO NOT CLEAR STATE HERE
@@ -118,8 +118,6 @@ function FormRow({ kind, data, setData, btnText, setBtnText, onAdd, btnColor, ma
             }
         } else if (field === 'wa') {
             const clean = digitsOnly(val);
-            // newData.wa is already set above to raw input, but we might want to store clean? 
-            // Input usually shows raw. Let's keep raw in input but check clean for map.
             if (clean && !newData.email && mapWaToEmail.has(clean)) {
                 newData.email = mapWaToEmail.get(clean)!;
             }
@@ -149,6 +147,16 @@ function FormRow({ kind, data, setData, btnText, setBtnText, onAdd, btnColor, ma
                     placeholder="+51 999 888 777"
                 />
             </div>
+            <div className="nickname">
+                <label>Nickname</label>
+                <input
+                    type="text"
+                    value={data.nickname}
+                    onChange={e => updateField('nickname', e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="@nickname"
+                />
+            </div>
             <div className="comment">
                 <label>Comentario</label>
                 <input
@@ -161,7 +169,6 @@ function FormRow({ kind, data, setData, btnText, setBtnText, onAdd, btnColor, ma
             </div>
             <div className="row-btns">
                 <button className={btnColor} onClick={handleSubmit}>{btnText}</button>
-                {/* Individual Clear button removed */}
             </div>
         </>
     );

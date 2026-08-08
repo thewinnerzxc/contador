@@ -18,6 +18,13 @@ export async function GET(request: Request) {
             return NextResponse.json({ message: 'Sequence fixed' });
         }
 
+        // Auto-migración para asegurar que exista la columna nickname
+        try {
+            await sql`ALTER TABLE activities ADD COLUMN IF NOT EXISTS nickname text DEFAULT ''`;
+        } catch (mErr) {
+            console.warn('Migration warning:', mErr);
+        }
+
         const activities = await sql`SELECT * FROM activities ORDER BY fecha DESC`;
         return NextResponse.json(activities);
     } catch (error: any) {
@@ -33,11 +40,11 @@ export async function POST(request: Request) {
     try {
         const sql = getSql(request);
         const body = await request.json();
-        const { fecha, tipo, email, whatsapp, estado, comentario } = body;
+        const { fecha, tipo, email, whatsapp, nickname, estado, comentario } = body;
 
         const result = await sql`
-      INSERT INTO activities (fecha, tipo, email, whatsapp, estado, comentario)
-      VALUES (${fecha || new Date().toISOString()}, ${tipo}, ${email || ''}, ${whatsapp || ''}, ${estado || false}, ${comentario || ''})
+      INSERT INTO activities (fecha, tipo, email, whatsapp, nickname, estado, comentario)
+      VALUES (${fecha || new Date().toISOString()}, ${tipo}, ${email || ''}, ${whatsapp || ''}, ${nickname || ''}, ${estado || false}, ${comentario || ''})
       RETURNING *
     `;
 

@@ -78,7 +78,7 @@
       <div class="actions">
         <!-- 1 (Antes 2) -->
         <div class="row t2">
-          <button class="tag tag-btn" id="pasteRow2">1) Resuelta su consulta de WhatsApp</button>
+          <button class="tag tag-btn" id="pasteRow2">1) WhatsApp</button>
           <div class="email">
             <label>Email</label>
             <input id="em2" type="email" placeholder="email@dominio.com" />
@@ -87,20 +87,22 @@
             <label>WhatsApp</label>
             <input id="wa2" type="text" placeholder="+51 999 888 777" />
           </div>
+          <div class="nickname">
+            <label>Nickname</label>
+            <input id="nk2" type="text" placeholder="@nickname" />
+          </div>
           <div class="comment">
             <label>Comentario</label>
             <input id="co2" type="text" placeholder="Notas breves (opcional)" />
           </div>
           <div class="row-btns">
             <button class="btn primary" id="b2">Agregar</button>
-            <button class="btn small orange" id="findEmail2" title="Buscar por Email">Email</button>
-            <button class="btn small purple" id="findWa2" title="Buscar por WhatsApp">WA</button>
           </div>
         </div>
 
         <!-- 2 (Antes 3) -->
         <div class="row t3">
-          <button class="tag tag-btn" id="pasteRow3">2) Resuelta consulta de Email</button>
+          <button class="tag tag-btn" id="pasteRow3">2) Email</button>
           <div class="email">
             <label>Email</label>
             <input id="em3" type="email" placeholder="email@dominio.com" />
@@ -109,14 +111,16 @@
             <label>WhatsApp</label>
             <input id="wa3" type="text" placeholder="+51 999 888 777" />
           </div>
+          <div class="nickname">
+            <label>Nickname</label>
+            <input id="nk3" type="text" placeholder="@nickname" />
+          </div>
           <div class="comment">
             <label>Comentario</label>
             <input id="co3" type="text" placeholder="Notas breves (opcional)" />
           </div>
           <div class="row-btns">
             <button class="btn primary" id="b3">Agregar</button>
-            <button class="btn small orange" id="findEmail3" title="Buscar por Email">Email</button>
-            <button class="btn small purple" id="findWa3" title="Buscar por WhatsApp">WA</button>
           </div>
         </div>
       </div>
@@ -124,7 +128,7 @@
       <h2 class="h2">Registros</h2>
       <div class="searchbar">
         <button id="btnPaste" class="btn yellow" title="Pegar del portapapeles">Paste</button>
-        <input id="q" type="text" placeholder="Buscar en tabla… (tipo, email, whatsapp, comentario)" />
+        <input id="q" type="text" placeholder="Buscar en tabla… (tipo, email, whatsapp, nickname, comentario)" />
         <select id="stateSel" class="btn">
           <option value="all" selected>Todos</option>
           <option value="pending">Pendientes</option>
@@ -144,6 +148,7 @@
               <th>Tipo</th>
               <th>Email</th>
               <th>WhatsApp</th>
+              <th>Nickname</th>
               <th>Estado</th>
               <th>Comentario</th>
               <th style="width:1%;">Acciones</th>

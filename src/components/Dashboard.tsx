@@ -105,9 +105,10 @@ export default function Dashboard() {
         if (q.trim()) {
             const lowerQ = q.toLowerCase();
             list = list.filter(r =>
-                r.email.toLowerCase().includes(lowerQ) ||
-                r.whatsapp.includes(lowerQ) ||
-                r.comentario.toLowerCase().includes(lowerQ)
+                (r.email || '').toLowerCase().includes(lowerQ) ||
+                (r.whatsapp || '').includes(lowerQ) ||
+                (r.nickname || '').toLowerCase().includes(lowerQ) ||
+                (r.comentario || '').toLowerCase().includes(lowerQ)
             );
         }
 
@@ -122,12 +123,13 @@ export default function Dashboard() {
         });
     }, [rows, q, filterState, sortDesc]);
 
-    const handleAdd = async (kind: ActivityType, email: string, wa: string, comment: string) => {
+    const handleAdd = async (kind: ActivityType, email: string, wa: string, comment: string, nickname: string = '') => {
         const newActivity = {
             fecha: nowStr(),
             tipo: kind,
             email,
             whatsapp: digitsOnly(wa),
+            nickname: nickname || '',
             estado: false,
             comentario: comment
         };
@@ -196,12 +198,13 @@ export default function Dashboard() {
         } catch (e) { console.error(e); }
     };
 
-    const handleBulkImport = async (newItems: { email: string, whatsapp: string, comentario: string }[]) => {
+    const handleBulkImport = async (newItems: { email: string, whatsapp: string, nickname?: string, comentario: string }[]) => {
         const activitiesToAdd = newItems.map(item => ({
             fecha: nowStr(),
             tipo: 'Resuelta su consulta de WhatsApp',
             email: item.email,
             whatsapp: digitsOnly(item.whatsapp),
+            nickname: item.nickname || '',
             estado: true,
             comentario: item.comentario
         }));

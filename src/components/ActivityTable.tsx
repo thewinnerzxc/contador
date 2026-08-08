@@ -21,6 +21,7 @@ export default function ActivityTable({ rows, onDelete, onUpdate, onWaClick }: A
                         <th>Tipo</th>
                         <th>Email</th>
                         <th>WhatsApp</th>
+                        <th>Nickname</th>
                         <th>Estado</th>
                         <th>Comentario</th>
                         <th>Acciones</th>
@@ -47,6 +48,7 @@ function TableRow({ row, idx, onDelete, onUpdate, onWaClick }: {
     row: Activity, idx: number, onDelete: (id: number) => void, onUpdate: (id: number, updates: Partial<Activity>) => void, onWaClick: (n: string) => void
 }) {
     const [emailCopied, setEmailCopied] = useState(false);
+    const [nickCopied, setNickCopied] = useState(false);
     const [waPicked, setWaPicked] = useState(false); // Using 'picked' for purple style
 
     const kind = row.tipo === 'Resuelta su consulta de WhatsApp' ? 2 : (row.tipo === 'Resuelta consulta de Email' ? 3 : 0);
@@ -61,23 +63,22 @@ function TableRow({ row, idx, onDelete, onUpdate, onWaClick }: {
         }
     };
 
+    const handleNickClick = () => {
+        if (row.nickname) {
+            navigator.clipboard.writeText(row.nickname);
+            setNickCopied(true);
+            setTimeout(() => setNickCopied(false), 800);
+        }
+    };
+
     const handleWaClick = () => {
         if (row.whatsapp) {
             navigator.clipboard.writeText(row.whatsapp);
             onWaClick(row.whatsapp);
             setWaPicked(true);
-            // Don't auto-remove 'picked' state instantly, keeps it purple 'selected' feel?
-            // Legacy behavior: stays picked until another is picked? or just visual feedback?
-            // Legacy just added .picked. Let's keep it simple: timeout for visual feedback, 
-            // or permanent 'active' state? 
-            // User said "paint purple", sounds like a selection state. 
-            // But I'll do a long timeout or toggle.
             setTimeout(() => setWaPicked(false), 2000);
         }
     };
-
-    // Custom class logic
-    // legacy: .copy-mail.copied (green), .copy-wa.picked (purple)
 
     return (
         <tr className={cssClass}>
@@ -113,6 +114,15 @@ function TableRow({ row, idx, onDelete, onUpdate, onWaClick }: {
                     title="Click para copiar y enviar a herramientas"
                 >
                     {row.whatsapp}
+                </span>
+            </td>
+            <td>
+                <span
+                    className={`copy-mail ${nickCopied ? 'copied' : ''}`}
+                    onClick={handleNickClick}
+                    title="Click para copiar nickname"
+                >
+                    {row.nickname || ''}
                 </span>
             </td>
             <td>

@@ -106,16 +106,17 @@ export async function saveNote(content) {
 export async function saveRow(row) {
     const sql = await getClient();
     await sql.query(`
-    INSERT INTO activities (id, fecha, tipo, email, whatsapp, estado, comentario)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    INSERT INTO activities (id, fecha, tipo, email, whatsapp, nickname, estado, comentario)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     ON CONFLICT (id) DO UPDATE SET
       fecha = EXCLUDED.fecha,
       tipo = EXCLUDED.tipo,
       email = EXCLUDED.email,
       whatsapp = EXCLUDED.whatsapp,
+      nickname = EXCLUDED.nickname,
       estado = EXCLUDED.estado,
       comentario = EXCLUDED.comentario
-  `, [row.id, row.fecha, row.tipo, row.email, row.whatsapp, row.estado, row.comentario]);
+  `, [row.id, row.fecha, row.tipo, row.email, row.whatsapp, row.nickname || '', row.estado, row.comentario]);
 }
 
 export async function deleteRow(id) {

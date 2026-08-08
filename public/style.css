@@ -718,7 +718,7 @@ dialog::backdrop {
 /* Filas de “Registrar actividad” como grid ordenada */
 .actions .row {
   display: grid;
-  grid-template-columns: 230px minmax(240px, 1fr) 230px minmax(220px, 1fr) auto;
+  grid-template-columns: 130px minmax(160px, 1fr) minmax(150px, 1fr) minmax(130px, 1fr) minmax(160px, 1.2fr) auto;
   gap: 10px 12px;
   align-items: end;
 }

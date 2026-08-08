@@ -4,6 +4,7 @@ export interface Activity {
     tipo: string;
     email: string;
     whatsapp: string;
+    nickname: string;
     estado: boolean;
     comentario: string;
 }

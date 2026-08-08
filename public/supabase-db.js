@@ -66,20 +66,31 @@ export async function fetchAll() {
 
 export async function saveRow(row) {
     if (!supabase) return;
-    // Upsert: inserta o actualiza si id coincide
+    const payload = {
+        id: row.id,
+        fecha: row.fecha,
+        tipo: row.tipo,
+        email: row.email,
+        whatsapp: row.whatsapp,
+        nickname: row.nickname || '',
+        estado: row.estado,
+        comentario: row.comentario
+    };
     const { error } = await supabase
         .from('activities')
-        .upsert({
-            id: row.id,
-            fecha: row.fecha,
-            tipo: row.tipo,
-            email: row.email,
-            whatsapp: row.whatsapp,
-            estado: row.estado,
-            comentario: row.comentario
-        });
+        .upsert(payload);
 
-    if (error) console.error('Error saving row:', error);
+    if (error) {
+        console.error('Error saving row in Supabase:', error);
+        // Fallback: Si la columna nickname aún no existe en el esquema de Supabase, reintentar sin nickname para no perder el registro
+        delete payload.nickname;
+        const { error: fallbackErr } = await supabase
+            .from('activities')
+            .upsert(payload);
+        if (fallbackErr) {
+            console.error('Fallback saveRow error:', fallbackErr);
+        }
+    }
 }
 
 export async function deleteRow(id) {

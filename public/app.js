@@ -269,6 +269,7 @@ function coerceFromAny(item, idxFallback) {
   const tipo = String(o.tipo ?? o.Tipo ?? '').trim();
   const email = String(o.email ?? o.Email ?? '').trim();
   const waRaw = String(o.whatsapp ?? o.Whatsapp ?? o.wa ?? '').trim();
+  const nickname = String(o.nickname ?? o.Nickname ?? o.nick ?? '').trim();
   const estadoRaw = (o.estado ?? o.Status ?? o.status ?? o.done ?? o.completado);
   // Comentario: si encontramos claves sueltas extra (comentario_1, comentario_2), las juntamos
   let comentario = '';
@@ -289,6 +290,7 @@ function coerceFromAny(item, idxFallback) {
     tipo,
     email,
     whatsapp: digitsOnly(waRaw),
+    nickname,
     estado: normalizeState(estadoRaw),
     comentario: comentario || ''
   };
@@ -304,6 +306,7 @@ function sanitizeRow(r, idx) {
       : (r.tipo || ''),
     email: (r.email || '').trim(),
     whatsapp: digitsOnly(r.whatsapp),
+    nickname: String(r.nickname || '').trim(),
     estado: !!normalizeState(r.estado),
     comentario: (r.comentario || '').trim()
   };
@@ -417,7 +420,7 @@ function getFilteredSorted() {
 }
 
 // Altas
-function addActivity(kind, email, whatsapp, comment) {
+function addActivity(kind, email, whatsapp, comment, nickname = '') {
   const id = rows.length ? Math.max(...rows.map(r => r.id)) + 1 : 1;
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     setStatus('Email no válido', false);
@@ -429,6 +432,7 @@ function addActivity(kind, email, whatsapp, comment) {
     tipo: TYPES[kind],
     email: (email || '').trim(),
     whatsapp: digitsOnly(whatsapp),
+    nickname: (nickname || '').trim(),
     estado: false,               // por defecto: pendiente (rojo)
     comentario: (comment || '').trim()
   };
@@ -558,6 +562,8 @@ function render() {
       ? `<span class="copy-wa" data-wa="${waDigits}" title="Copiar WhatsApp y usar en Link rápido">${esc(waDigits)}</span>`
       : `<button class="btn-add-val btn-add-wa" data-id="${r.id}" title="Agregar WhatsApp">+ WA</button>`;
 
+    const nickHtml = `<span class="copy-mail copy-nick" data-nick="${esc(r.nickname || '')}" title="Copiar nickname">${esc(r.nickname || '')}</span>`;
+
     const stTitle = r.estado ? 'Completado' : 'Pendiente';
 
     return `
@@ -572,6 +578,7 @@ function render() {
         </td>
         <td>${emailHtml}</td>
         <td>${waHtml}</td>
+        <td>${nickHtml}</td>
         <td>
           <label class="switch ${r.estado ? 'done' : 'pending'}" title="${stTitle}">
             <input type="checkbox" class="st" data-id="${r.id}" ${r.estado ? 'checked' : ''}>
@@ -785,13 +792,13 @@ function bindFormEnhancements(k) {
   wa.addEventListener('blur', () => maybeFillEmailFromWa(wa, em));
 
   // buscadores
-  $(`#findEmail${k}`).addEventListener('click', () => {
+  $(`#findEmail${k}`)?.addEventListener('click', () => {
     q = em.value.trim();
     qInp.value = q;
     render();
     tableCard.scrollIntoView({ behavior: 'smooth' });
   });
-  $(`#findWa${k}`).addEventListener('click', () => {
+  $(`#findWa${k}`)?.addEventListener('click', () => {
     q = wa.value.trim();
     qInp.value = q;
     render();
@@ -802,11 +809,11 @@ function bindFormEnhancements(k) {
 
 // Eventos: altas
 $('#b2').addEventListener('click', () => {
-  addActivity(2, $('#em2').value, $('#wa2').value, $('#co2').value);
+  addActivity(2, $('#em2').value, $('#wa2').value, $('#co2').value, $('#nk2') ? $('#nk2').value : '');
   markAdded($('#b2'));
 });
 $('#b3').addEventListener('click', () => {
-  addActivity(3, $('#em3').value, $('#wa3').value, $('#co3').value);
+  addActivity(3, $('#em3').value, $('#wa3').value, $('#co3').value, $('#nk3') ? $('#nk3').value : '');
   markAdded($('#b3'));
 });
 bindFormEnhancements(2);
@@ -816,12 +823,13 @@ bindFormEnhancements(3);
 function bindEnter(kind, btnSel) {
   const em = $(`#em${kind}`),
     wa = $(`#wa${kind}`),
+    nk = $(`#nk${kind}`),
     co = $(`#co${kind}`);
-  [em, wa, co].forEach(el => {
+  [em, wa, nk, co].filter(Boolean).forEach(el => {
     el.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        addActivity(kind, em.value, wa.value, co.value);
+        addActivity(kind, em.value, wa.value, co.value, nk ? nk.value : '');
         markAdded($(btnSel));
       }
     });
@@ -847,9 +855,10 @@ function markAdded(btn) {
 // Clear formularios
 const clearInputs = () => {
   ['2', '3'].forEach(k => {
-    $(`#em${k}`).value = '';
-    $(`#wa${k}`).value = '';
-    $(`#co${k}`).value = '';
+    if ($(`#em${k}`)) $(`#em${k}`).value = '';
+    if ($(`#wa${k}`)) $(`#wa${k}`).value = '';
+    if ($(`#nk${k}`)) $(`#nk${k}`).value = '';
+    if ($(`#co${k}`)) $(`#co${k}`).value = '';
   });
 };
 
@@ -892,39 +901,41 @@ window.addEventListener('keydown', (e) => {
 const handleTagPaste = async (kind) => {
   const em = $(`#em${kind}`);
   const wa = $(`#wa${kind}`);
+  const nk = $(`#nk${kind}`);
   const co = $(`#co${kind}`);
 
   // Clean before paste
-  em.value = '';
-  wa.value = '';
-  co.value = '';
+  if (em) em.value = '';
+  if (wa) wa.value = '';
+  if (nk) nk.value = '';
+  if (co) co.value = '';
 
   try {
     const text = await navigator.clipboard.readText();
     if (text) {
       const clean = text.trim();
       if (clean.startsWith('@')) {
-        co.value = `Telegram: ${clean} ... `;
+        if (nk) nk.value = clean;
       } else if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
-        em.value = clean;
+        if (em) em.value = clean;
         maybeFillWaFromEmail(em, wa);
       } else if (/\d/.test(clean)) {
-        wa.value = digitsOnly(clean);
+        if (wa) wa.value = digitsOnly(clean);
         maybeFillEmailFromWa(wa, em);
       } else {
-        // Fallback: put in comment or as best guess
-        co.value = clean;
+        if (co) co.value = clean;
       }
       setStatus('Pegado del portapapeles', true);
     }
-    // Final focus on comment field and place cursor at the end
-    co.focus();
-    if (co.value) {
-      co.setSelectionRange(co.value.length, co.value.length);
+    if (co) {
+      co.focus();
+      if (co.value) {
+        co.setSelectionRange(co.value.length, co.value.length);
+      }
     }
   } catch (err) {
     console.error('Clipboard paste failed:', err);
-    co.focus(); // Focus even on error
+    if (co) co.focus();
   }
 };
 
@@ -1388,10 +1399,26 @@ async function reloadFromDb(note = 'sincronizado') {
 
     if (Array.isArray(arr)) {
       const newRows = arr.map((it, idx) => sanitizeRow(it, idx));
+      const serverMap = new Map(newRows.map(r => [r.id, r]));
+
+      // Preservar nicknames locales y filas no devueltas aún por el servidor
+      rows.forEach(localR => {
+        const serverR = serverMap.get(localR.id);
+        if (serverR) {
+          if (!serverR.nickname && localR.nickname) {
+            serverR.nickname = localR.nickname;
+          }
+        } else {
+          newRows.push(localR);
+        }
+      });
+
+      newRows.sort((a, b) => b.id - a.id);
 
       // Comparación simple para evitar re-render si no hay cambios
       if (JSON.stringify(newRows) !== JSON.stringify(rows)) {
         rows = newRows;
+        saveLocal();
         setDbUI(true, note);
         normalizeAndRender();
       } else {

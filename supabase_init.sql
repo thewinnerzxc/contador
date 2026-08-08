@@ -5,9 +5,13 @@ create table if not exists activities (
   tipo text,
   email text,
   whatsapp text,
+  nickname text default '',
   estado boolean,
   comentario text
 );
+
+-- Asegurar columna nickname si la tabla ya existía
+alter table activities add column if not exists nickname text default '';
 
 -- Tabla para notas rápidas (solo una fila, id=1)
 create table if not exists notes (
