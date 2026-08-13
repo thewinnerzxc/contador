@@ -74,10 +74,9 @@ let sortDesc = true;         // por fecha desc
 // directorio pares (construido desde rows + importaciones)
 let mapEmailToWa = new Map();
 let mapWaToEmail = new Map();
-let mapNickToEmail = new Map();
-let mapNickToWa = new Map();
 let mapEmailToNick = new Map();
 let mapWaToNick = new Map();
+let mapNickToContact = new Map();
 let lastPickedWaEl = null;   // último número WA resaltado en la tabla
 let lastPickedEmailEl = null; // último email resaltado en la tabla
 let lastPickedNickEl = null;  // último nickname resaltado en la tabla
@@ -243,12 +242,6 @@ const cleanEmail = s => (s || '').trim().toLowerCase();
 
 // *** SOLO DÍGITOS para WhatsApp ***
 const digitsOnly = s => (s || '').replace(/\D/g, '');
-const cleanEmail = s => (s || '').trim().toLowerCase();
-const cleanNick = s => {
-  let t = (s || '').trim();
-  if (t.startsWith('@')) t = t.slice(1);
-  return t.trim().toLowerCase();
-};
 
 // ====== Normalización robusta de ESTADO (csv tolerant) ======
 function normalizeState(v) {
@@ -366,36 +359,41 @@ function savePairs(arr) {
   localStorage.setItem(PAIRS_KEY, JSON.stringify(arr || []));
 }
 
+function cleanNick(nick) {
+  if (!nick) return '';
+  return String(nick).trim().toLowerCase().replace(/^@/, '');
+}
+
 function buildDir() {
   mapEmailToWa = new Map();
   mapWaToEmail = new Map();
-  mapNickToEmail = new Map();
-  mapNickToWa = new Map();
   mapEmailToNick = new Map();
   mapWaToNick = new Map();
-
+  mapNickToContact = new Map();
   const pairs = loadPairs();
 
-  const push = (email, waRaw, nickRaw) => {
-    const e = cleanEmail(email);
+  const push = (emailRaw, waRaw, nickRaw) => {
+    const e = cleanEmail(emailRaw);
     const w = digitsOnly(waRaw);
-    const n = cleanNick(nickRaw);
-
-    const origEmail = (email || '').trim();
-    const origWa = digitsOnly(waRaw);
-    const origNick = (nickRaw || '').trim();
+    const nKey = cleanNick(nickRaw);
+    const nOrig = (nickRaw || '').trim();
 
     if (e && w) {
-      if (!mapEmailToWa.has(e)) mapEmailToWa.set(e, origWa);
-      if (!mapWaToEmail.has(w)) mapWaToEmail.set(w, origEmail);
+      if (!mapEmailToWa.has(e)) mapEmailToWa.set(e, w);
+      if (!mapWaToEmail.has(w)) mapWaToEmail.set(w, e);
     }
-    if (n && e) {
-      if (!mapNickToEmail.has(n)) mapNickToEmail.set(n, origEmail);
-      if (!mapEmailToNick.has(e)) mapEmailToNick.set(e, origNick);
-    }
-    if (n && w) {
-      if (!mapNickToWa.has(n)) mapNickToWa.set(n, origWa);
-      if (!mapWaToNick.has(w)) mapWaToNick.set(w, origNick);
+    if (e && nOrig && !mapEmailToNick.has(e)) mapEmailToNick.set(e, nOrig);
+    if (w && nOrig && !mapWaToNick.has(w)) mapWaToNick.set(w, nOrig);
+
+    if (nKey) {
+      if (!mapNickToContact.has(nKey)) {
+        mapNickToContact.set(nKey, { email: emailRaw || '', whatsapp: w || '', nickname: nOrig });
+      } else {
+        const existing = mapNickToContact.get(nKey);
+        if (!existing.email && emailRaw) existing.email = emailRaw;
+        if (!existing.whatsapp && w) existing.whatsapp = w;
+        if (!existing.nickname && nOrig) existing.nickname = nOrig;
+      }
     }
   };
 
@@ -447,7 +445,7 @@ function getFilteredSorted() {
 
   if (tokens.length) {
     list = list.filter(r => {
-      const hay = [r.tipo, r.email, r.whatsapp, r.comentario].map(norm).join(' ');
+      const hay = [r.tipo, r.email, r.whatsapp, r.nickname, r.comentario].map(norm).join(' ');
       return tokens.every(t => hay.includes(t));
     });
   }
@@ -564,10 +562,10 @@ function updateField(id, field, value) {
   if (isDbConnected()) {
     saveRow(r).then(() => setDbUI(true, 'actualizado'));
 
-    // Si se actualizó email o whatsapp, intentar guardar contacto
+    // Si se actualizó email, whatsapp o nickname, intentar guardar contacto
     // Usamos los valores actuales de la fila
-    if ((field === 'email' || field === 'whatsapp') && r.email && r.whatsapp) {
-      saveContactsBulk([{ email: r.email, whatsapp: r.whatsapp }])
+    if ((field === 'email' || field === 'whatsapp' || field === 'nickname') && (r.email || r.whatsapp || r.nickname)) {
+      saveContactsBulk([{ email: r.email, whatsapp: r.whatsapp, nickname: r.nickname }])
         .catch(err => console.error('Error guardando contacto al editar:', err));
     }
   }
@@ -830,52 +828,92 @@ function renderPaginationControls(totalPages, totalItems) {
 }
 
 // ======== Autocompletado cruzado (historial + import) ========
-function maybeFillEmailFromWa(waInp, emInp, nkInp) {
-  const waKey = digitsOnly(waInp ? waInp.value : '');
-  if (!waKey) return;
-  if (emInp && !emInp.value.trim()) {
-    const email = mapWaToEmail.get(waKey);
-    if (email) emInp.value = email;
+function findContactByNick(nkVal) {
+  const nkKey = cleanNick(nkVal);
+  if (!nkKey) return null;
+
+  // 1. Map lookup
+  if (mapNickToContact.has(nkKey)) {
+    return mapNickToContact.get(nkKey);
   }
-  if (nkInp && !nkInp.value.trim()) {
-    const nick = mapWaToNick.get(waKey);
-    if (nick) nkInp.value = nick;
+
+  // 2. Direct rows fallback search
+  const found = rows.find(r => cleanNick(r.nickname) === nkKey && (r.email || r.whatsapp));
+  if (found) {
+    return {
+      email: found.email || '',
+      whatsapp: found.whatsapp || '',
+      nickname: found.nickname || ''
+    };
+  }
+
+  return null;
+}
+
+function findContactByWa(waVal) {
+  const waKey = digitsOnly(waVal);
+  if (!waKey) return null;
+
+  const email = mapWaToEmail.get(waKey);
+  const nick = mapWaToNick.get(waKey);
+  const foundRow = rows.find(r => digitsOnly(r.whatsapp) === waKey && (r.email || r.nickname));
+
+  return {
+    email: email || foundRow?.email || '',
+    nickname: nick || foundRow?.nickname || ''
+  };
+}
+
+function findContactByEmail(emailVal) {
+  const emKey = cleanEmail(emailVal);
+  if (!emKey) return null;
+
+  const wa = mapEmailToWa.get(emKey);
+  const nick = mapEmailToNick.get(emKey);
+  const foundRow = rows.find(r => cleanEmail(r.email) === emKey && (r.whatsapp || r.nickname));
+
+  return {
+    whatsapp: wa || foundRow?.whatsapp || '',
+    nickname: nick || foundRow?.nickname || ''
+  };
+}
+
+function maybeFillFromNick(nkInp, emInp, waInp) {
+  if (!nkInp || !nkInp.value) return;
+  const contact = findContactByNick(nkInp.value);
+  if (!contact) return;
+
+  if (emInp && !emInp.value.trim() && contact.email) {
+    emInp.value = contact.email;
+  }
+  if (waInp && !waInp.value.trim() && contact.whatsapp) {
+    waInp.value = contact.whatsapp;
+  }
+}
+
+function maybeFillEmailFromWa(waInp, emInp, nkInp) {
+  if (!waInp || !waInp.value) return;
+  const contact = findContactByWa(waInp.value);
+  if (!contact) return;
+
+  if (emInp && !emInp.value.trim() && contact.email) {
+    emInp.value = contact.email;
+  }
+  if (nkInp && !nkInp.value.trim() && contact.nickname) {
+    nkInp.value = contact.nickname;
   }
 }
 
 function maybeFillWaFromEmail(emInp, waInp, nkInp) {
-  const emKey = cleanEmail(emInp ? emInp.value : '');
-  if (!emKey) return;
-  if (waInp && !waInp.value.trim()) {
-    const wa = mapEmailToWa.get(emKey);
-    if (wa) waInp.value = wa;
-  }
-  if (nkInp && !nkInp.value.trim()) {
-    const nick = mapEmailToNick.get(emKey);
-    if (nick) nkInp.value = nick;
-  }
-}
+  if (!emInp || !emInp.value) return;
+  const contact = findContactByEmail(emInp.value);
+  if (!contact) return;
 
-function maybeFillFromNick(nkInp, emInp, waInp) {
-  const nKey = cleanNick(nkInp ? nkInp.value : '');
-  if (!nKey) return;
-
-  if (emInp && !emInp.value.trim()) {
-    const email = mapNickToEmail.get(nKey);
-    if (email) emInp.value = email;
+  if (waInp && !waInp.value.trim() && contact.whatsapp) {
+    waInp.value = contact.whatsapp;
   }
-
-  if (waInp && !waInp.value.trim()) {
-    const wa = mapNickToWa.get(nKey);
-    if (wa) wa.value = wa;
-  }
-
-  // Autocompletado cruzado secundario si uno se rellenó pero falta el otro
-  if (emInp && emInp.value.trim() && waInp && !waInp.value.trim()) {
-    maybeFillWaFromEmail(emInp, waInp, nkInp);
-  }
-  if (waInp && waInp.value.trim() && emInp && !emInp.value.trim()) {
-    maybeFillEmailFromWa(waInp, emInp, nkInp);
+  if (nkInp && !nkInp.value.trim() && contact.nickname) {
+    nkInp.value = contact.nickname;
   }
 }
 
@@ -904,13 +942,13 @@ function bindFormEnhancements(k) {
     wa.addEventListener('blur', () => maybeFillEmailFromWa(wa, em, nk));
   }
 
-  // autocompletado con email
+  // Autocompletado con email
   if (em) {
     em.addEventListener('input', () => maybeFillWaFromEmail(em, wa, nk));
     em.addEventListener('blur', () => maybeFillWaFromEmail(em, wa, nk));
   }
 
-  // autocompletado con nickname
+  // Autocompletado con nickname
   if (nk) {
     nk.addEventListener('input', () => maybeFillFromNick(nk, em, wa));
     nk.addEventListener('blur', () => maybeFillFromNick(nk, em, wa));
@@ -918,14 +956,12 @@ function bindFormEnhancements(k) {
 
   // buscadores
   $(`#findEmail${k}`)?.addEventListener('click', () => {
-    if (!em) return;
     q = em.value.trim();
     qInp.value = q;
     render();
     tableCard.scrollIntoView({ behavior: 'smooth' });
   });
   $(`#findWa${k}`)?.addEventListener('click', () => {
-    if (!wa) return;
     q = wa.value.trim();
     qInp.value = q;
     render();
@@ -1044,14 +1080,20 @@ const handleTagPaste = async (kind) => {
     if (text) {
       const clean = text.trim();
       if (clean.startsWith('@')) {
-        if (nk) nk.value = clean;
-        maybeFillFromNick(nk, em, wa);
+        if (nk) {
+          nk.value = clean;
+          maybeFillFromNick(nk, em, wa);
+        }
       } else if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
-        if (em) em.value = clean;
-        maybeFillWaFromEmail(em, wa, nk);
+        if (em) {
+          em.value = clean;
+          maybeFillWaFromEmail(em, wa, nk);
+        }
       } else if (/\d/.test(clean)) {
-        if (wa) wa.value = digitsOnly(clean);
-        maybeFillEmailFromWa(wa, em, nk);
+        if (wa) {
+          wa.value = digitsOnly(clean);
+          maybeFillEmailFromWa(wa, em, nk);
+        }
       } else {
         if (co) co.value = clean;
       }
@@ -1585,12 +1627,12 @@ async function reloadFromDb(note = 'sincronizado') {
       const map = new Map();
       // Prioridad: DB > Local? O mezcla. Mezclamos.
       pairs.forEach(p => {
-        const k = cleanEmail(p.email) || digitsOnly(p.whatsapp) || cleanNick(p.nickname);
+        const k = cleanEmail(p.email) || digitsOnly(p.whatsapp);
         if (k) map.set(k, p);
       });
       contacts.forEach(c => {
-        const k = cleanEmail(c.email) || digitsOnly(c.whatsapp) || cleanNick(c.nickname);
-        if (k) map.set(k, { email: c.email || '', whatsapp: c.whatsapp || '', nickname: c.nickname || '' });
+        const k = cleanEmail(c.email) || digitsOnly(c.whatsapp);
+        if (k) map.set(k, { email: c.email || '', whatsapp: c.whatsapp || '' });
       });
       savePairs([...map.values()]);
       buildDir();

@@ -158,9 +158,12 @@ export async function getContacts() {
     if (!supabase) return [];
     const { data, error } = await supabase
         .from('contacts')
-        .select('email, whatsapp');
+        .select('email, whatsapp, nickname');
 
-    if (error) return [];
+    if (error) {
+        const { data: fallbackData } = await supabase.from('contacts').select('email, whatsapp');
+        return fallbackData || [];
+    }
     return data || [];
 }
 
@@ -168,7 +171,7 @@ export async function saveContactsBulk(pairs) {
     if (!supabase || !pairs.length) return;
 
     // Filtrar vacíos
-    const valid = pairs.filter(p => p.email || p.whatsapp);
+    const valid = pairs.filter(p => p.email || p.whatsapp || p.nickname);
     if (!valid.length) return;
 
     // Upsert con ignoreDuplicates: true para evitar error de violación de unique
@@ -176,5 +179,10 @@ export async function saveContactsBulk(pairs) {
         .from('contacts')
         .upsert(valid, { onConflict: 'email, whatsapp', ignoreDuplicates: true });
 
-    if (error) console.error('Error saving contacts:', error);
+    if (error) {
+        const legacyValid = valid.map(p => ({ email: p.email || '', whatsapp: p.whatsapp || '' })).filter(p => p.email || p.whatsapp);
+        if (legacyValid.length) {
+            await supabase.from('contacts').upsert(legacyValid, { onConflict: 'email, whatsapp', ignoreDuplicates: true });
+        }
+    }
 }
