@@ -74,6 +74,10 @@ let sortDesc = true;         // por fecha desc
 // directorio pares (construido desde rows + importaciones)
 let mapEmailToWa = new Map();
 let mapWaToEmail = new Map();
+let mapNickToEmail = new Map();
+let mapNickToWa = new Map();
+let mapEmailToNick = new Map();
+let mapWaToNick = new Map();
 let lastPickedWaEl = null;   // último número WA resaltado en la tabla
 let lastPickedEmailEl = null; // último email resaltado en la tabla
 let lastPickedNickEl = null;  // último nickname resaltado en la tabla
@@ -239,6 +243,12 @@ const cleanEmail = s => (s || '').trim().toLowerCase();
 
 // *** SOLO DÍGITOS para WhatsApp ***
 const digitsOnly = s => (s || '').replace(/\D/g, '');
+const cleanEmail = s => (s || '').trim().toLowerCase();
+const cleanNick = s => {
+  let t = (s || '').trim();
+  if (t.startsWith('@')) t = t.slice(1);
+  return t.trim().toLowerCase();
+};
 
 // ====== Normalización robusta de ESTADO (csv tolerant) ======
 function normalizeState(v) {
@@ -359,20 +369,38 @@ function savePairs(arr) {
 function buildDir() {
   mapEmailToWa = new Map();
   mapWaToEmail = new Map();
+  mapNickToEmail = new Map();
+  mapNickToWa = new Map();
+  mapEmailToNick = new Map();
+  mapWaToNick = new Map();
+
   const pairs = loadPairs();
 
-  const push = (email, waRaw) => {
+  const push = (email, waRaw, nickRaw) => {
     const e = cleanEmail(email);
     const w = digitsOnly(waRaw);
-    if (!e && !w) return;
+    const n = cleanNick(nickRaw);
+
+    const origEmail = (email || '').trim();
+    const origWa = digitsOnly(waRaw);
+    const origNick = (nickRaw || '').trim();
+
     if (e && w) {
-      if (!mapEmailToWa.has(e)) mapEmailToWa.set(e, w);
-      if (!mapWaToEmail.has(w)) mapWaToEmail.set(w, e);
+      if (!mapEmailToWa.has(e)) mapEmailToWa.set(e, origWa);
+      if (!mapWaToEmail.has(w)) mapWaToEmail.set(w, origEmail);
+    }
+    if (n && e) {
+      if (!mapNickToEmail.has(n)) mapNickToEmail.set(n, origEmail);
+      if (!mapEmailToNick.has(e)) mapEmailToNick.set(e, origNick);
+    }
+    if (n && w) {
+      if (!mapNickToWa.has(n)) mapNickToWa.set(n, origWa);
+      if (!mapWaToNick.has(w)) mapWaToNick.set(w, origNick);
     }
   };
 
-  rows.forEach(r => push(r.email, r.whatsapp));
-  pairs.forEach(p => push(p.email, p.whatsapp));
+  rows.forEach(r => push(r.email, r.whatsapp, r.nickname));
+  pairs.forEach(p => push(p.email, p.whatsapp, p.nickname));
 }
 
 // Descarga en formato Excel compatible (CSV con sep=; y BOM)
@@ -802,53 +830,102 @@ function renderPaginationControls(totalPages, totalItems) {
 }
 
 // ======== Autocompletado cruzado (historial + import) ========
-function maybeFillEmailFromWa(waInp, emInp) {
-  const waKey = digitsOnly(waInp.value);
-  if (!waKey || emInp.value.trim()) return;
-  const email = mapWaToEmail.get(waKey);
-  if (email) emInp.value = email;
+function maybeFillEmailFromWa(waInp, emInp, nkInp) {
+  const waKey = digitsOnly(waInp ? waInp.value : '');
+  if (!waKey) return;
+  if (emInp && !emInp.value.trim()) {
+    const email = mapWaToEmail.get(waKey);
+    if (email) emInp.value = email;
+  }
+  if (nkInp && !nkInp.value.trim()) {
+    const nick = mapWaToNick.get(waKey);
+    if (nick) nkInp.value = nick;
+  }
 }
-function maybeFillWaFromEmail(emInp, waInp) {
-  const emKey = cleanEmail(emInp.value);
-  if (!emKey || waInp.value.trim()) return;
-  const wa = mapEmailToWa.get(emKey);
-  if (wa) waInp.value = wa;
+
+function maybeFillWaFromEmail(emInp, waInp, nkInp) {
+  const emKey = cleanEmail(emInp ? emInp.value : '');
+  if (!emKey) return;
+  if (waInp && !waInp.value.trim()) {
+    const wa = mapEmailToWa.get(emKey);
+    if (wa) waInp.value = wa;
+  }
+  if (nkInp && !nkInp.value.trim()) {
+    const nick = mapEmailToNick.get(emKey);
+    if (nick) nkInp.value = nick;
+  }
+}
+
+function maybeFillFromNick(nkInp, emInp, waInp) {
+  const nKey = cleanNick(nkInp ? nkInp.value : '');
+  if (!nKey) return;
+
+  if (emInp && !emInp.value.trim()) {
+    const email = mapNickToEmail.get(nKey);
+    if (email) emInp.value = email;
+  }
+
+  if (waInp && !waInp.value.trim()) {
+    const wa = mapNickToWa.get(nKey);
+    if (wa) wa.value = wa;
+  }
+
+  // Autocompletado cruzado secundario si uno se rellenó pero falta el otro
+  if (emInp && emInp.value.trim() && waInp && !waInp.value.trim()) {
+    maybeFillWaFromEmail(emInp, waInp, nkInp);
+  }
+  if (waInp && waInp.value.trim() && emInp && !emInp.value.trim()) {
+    maybeFillEmailFromWa(waInp, emInp, nkInp);
+  }
 }
 
 // Vincula un bloque de alta (k = 1/2/3) con saneo en input/paste
 function bindFormEnhancements(k) {
   const em = $(`#em${k}`),
     wa = $(`#wa${k}`),
+    nk = $(`#nk${k}`),
     co = $(`#co${k}`);
 
   // Saneador de WA en input
-  wa.addEventListener('input', () => {
-    wa.value = digitsOnly(wa.value);
-    maybeFillEmailFromWa(wa, em);
-  });
+  if (wa) {
+    wa.addEventListener('input', () => {
+      wa.value = digitsOnly(wa.value);
+      maybeFillEmailFromWa(wa, em, nk);
+    });
 
-  // Saneador de WA en paste (respeta selección)
-  wa.addEventListener('paste', (e) => {
-    const txt = (e.clipboardData || window.clipboardData)?.getData('text') || '';
-    if (!txt) return;
-    e.preventDefault();
-    wa.setRangeText(digitsOnly(txt), wa.selectionStart, wa.selectionEnd, 'end');
-    wa.dispatchEvent(new Event('input'));
-  });
+    wa.addEventListener('paste', (e) => {
+      const txt = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+      if (!txt) return;
+      e.preventDefault();
+      wa.setRangeText(digitsOnly(txt), wa.selectionStart, wa.selectionEnd, 'end');
+      wa.dispatchEvent(new Event('input'));
+    });
+
+    wa.addEventListener('blur', () => maybeFillEmailFromWa(wa, em, nk));
+  }
 
   // autocompletado con email
-  em.addEventListener('input', () => maybeFillWaFromEmail(em, wa));
-  em.addEventListener('blur', () => maybeFillWaFromEmail(em, wa));
-  wa.addEventListener('blur', () => maybeFillEmailFromWa(wa, em));
+  if (em) {
+    em.addEventListener('input', () => maybeFillWaFromEmail(em, wa, nk));
+    em.addEventListener('blur', () => maybeFillWaFromEmail(em, wa, nk));
+  }
+
+  // autocompletado con nickname
+  if (nk) {
+    nk.addEventListener('input', () => maybeFillFromNick(nk, em, wa));
+    nk.addEventListener('blur', () => maybeFillFromNick(nk, em, wa));
+  }
 
   // buscadores
   $(`#findEmail${k}`)?.addEventListener('click', () => {
+    if (!em) return;
     q = em.value.trim();
     qInp.value = q;
     render();
     tableCard.scrollIntoView({ behavior: 'smooth' });
   });
   $(`#findWa${k}`)?.addEventListener('click', () => {
+    if (!wa) return;
     q = wa.value.trim();
     qInp.value = q;
     render();
@@ -968,12 +1045,13 @@ const handleTagPaste = async (kind) => {
       const clean = text.trim();
       if (clean.startsWith('@')) {
         if (nk) nk.value = clean;
+        maybeFillFromNick(nk, em, wa);
       } else if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
         if (em) em.value = clean;
-        maybeFillWaFromEmail(em, wa);
+        maybeFillWaFromEmail(em, wa, nk);
       } else if (/\d/.test(clean)) {
         if (wa) wa.value = digitsOnly(clean);
-        maybeFillEmailFromWa(wa, em);
+        maybeFillEmailFromWa(wa, em, nk);
       } else {
         if (co) co.value = clean;
       }
@@ -1507,12 +1585,12 @@ async function reloadFromDb(note = 'sincronizado') {
       const map = new Map();
       // Prioridad: DB > Local? O mezcla. Mezclamos.
       pairs.forEach(p => {
-        const k = cleanEmail(p.email) || digitsOnly(p.whatsapp);
+        const k = cleanEmail(p.email) || digitsOnly(p.whatsapp) || cleanNick(p.nickname);
         if (k) map.set(k, p);
       });
       contacts.forEach(c => {
-        const k = cleanEmail(c.email) || digitsOnly(c.whatsapp);
-        if (k) map.set(k, { email: c.email || '', whatsapp: c.whatsapp || '' });
+        const k = cleanEmail(c.email) || digitsOnly(c.whatsapp) || cleanNick(c.nickname);
+        if (k) map.set(k, { email: c.email || '', whatsapp: c.whatsapp || '', nickname: c.nickname || '' });
       });
       savePairs([...map.values()]);
       buildDir();
