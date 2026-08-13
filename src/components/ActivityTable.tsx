@@ -118,13 +118,28 @@ function TableRow({ row, idx, onDelete, onUpdate, onWaClick }: {
                 </span>
             </td>
             <td>
-                <span
-                    className={`copy-mail ${nickCopied ? 'copied' : ''}`}
-                    onClick={handleNickClick}
-                    title="Click para copiar nickname"
-                >
-                    {row.nickname || ''}
-                </span>
+                {row.nickname ? (
+                    <span
+                        className={`copy-nick ${nickCopied ? 'picked' : ''}`}
+                        onClick={handleNickClick}
+                        title="Click para copiar nickname"
+                    >
+                        {row.nickname}
+                    </span>
+                ) : (
+                    <button
+                        className="btn-add-val btn-add-nk"
+                        title="Agregar Nickname"
+                        onClick={async () => {
+                            const val = prompt('Ingresa el Nickname para esta actividad:');
+                            if (val === null) return;
+                            const cleanVal = val.trim();
+                            onUpdate(row.id, { nickname: cleanVal });
+                        }}
+                    >
+                        + NK
+                    </button>
+                )}
             </td>
             <td>
                 <label className={`switch ${row.estado ? 'done' : 'pending'}`}>

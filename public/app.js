@@ -76,6 +76,7 @@ let mapEmailToWa = new Map();
 let mapWaToEmail = new Map();
 let lastPickedWaEl = null;   // último número WA resaltado en la tabla
 let lastPickedEmailEl = null; // último email resaltado en la tabla
+let lastPickedNickEl = null;  // último nickname resaltado en la tabla
 
 // -- Pagination & Sync vars --
 let currentPage = 1;
@@ -582,7 +583,7 @@ function render() {
 
     const nickHtml = r.nickname
       ? `<span class="copy-nick" data-nick="${esc(r.nickname)}" title="Click para copiar nickname">${esc(r.nickname)}</span>`
-      : '';
+      : `<button class="btn-add-val btn-add-nk" data-id="${r.id}" title="Agregar Nickname">+ NK</button>`;
 
     const stTitle = r.estado ? 'Completado' : 'Pendiente';
 
@@ -653,7 +654,7 @@ function render() {
 
       clearTableHighlights();
       el.classList.add('picked');
-      lastPickedEmailEl = el;
+      lastPickedNickEl = el;
 
       setStatus('Nickname copiado al portapapeles: ' + nick, true);
     });
@@ -698,6 +699,19 @@ function render() {
       const cleanVal = digitsOnly(val);
       updateField(id, 'whatsapp', cleanVal);
       setStatus('WhatsApp agregado', true);
+    });
+  });
+
+  // Agregar Nickname desde la tabla
+  tbody.querySelectorAll('.btn-add-nk').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = +btn.dataset.id;
+      const val = await showPrompt('Ingresa el Nickname para esta actividad:');
+      if (val === null) return; // canceló
+      const cleanVal = val.trim();
+      updateField(id, 'nickname', cleanVal);
+      setStatus('Nickname agregado', true);
     });
   });
 
@@ -907,8 +921,10 @@ const clearAllActive = () => {
   qInp.value = '';
   if (lastPickedEmailEl) lastPickedEmailEl.classList.remove('picked');
   if (lastPickedWaEl) lastPickedWaEl.classList.remove('picked');
+  if (lastPickedNickEl) lastPickedNickEl.classList.remove('picked');
   lastPickedEmailEl = null;
   lastPickedWaEl = null;
+  lastPickedNickEl = null;
   currentPage = 1;
   render();
 };
@@ -1060,6 +1076,10 @@ function clearTableHighlights() {
   if (lastPickedEmailEl) {
     lastPickedEmailEl.classList.remove('picked');
     lastPickedEmailEl = null;
+  }
+  if (lastPickedNickEl) {
+    lastPickedNickEl.classList.remove('picked');
+    lastPickedNickEl = null;
   }
 }
 
@@ -1673,6 +1693,7 @@ function startAddComment(rowId) {
 document.addEventListener('contextmenu', (e) => {
   const mailEl = e.target.closest('.copy-mail');
   const waEl = e.target.closest('.copy-wa');
+  const nickEl = e.target.closest('.copy-nick');
   
   if (mailEl) {
     e.preventDefault();
@@ -1934,6 +1955,63 @@ document.addEventListener('contextmenu', (e) => {
             comentario: currentComment
           });
           setStatus('WhatsApp principal modificado y anterior guardado como alterno', true);
+        }
+      }
+    ];
+    showContextMenu(e, options);
+  } else if (nickEl) {
+    e.preventDefault();
+    const rowId = +nickEl.closest('tr').dataset.id;
+    const currentVal = nickEl.getAttribute('data-nick');
+    const r = rows.find(x => x.id === rowId);
+    if (!r) return;
+
+    clearTableHighlights();
+    nickEl.classList.add('picked');
+    lastPickedNickEl = nickEl;
+
+    const options = [
+      {
+        icon: '💬',
+        text: 'Añadir comentario',
+        action: 'add_comment',
+        handler: () => {
+          startAddComment(rowId);
+        }
+      },
+      { type: 'divider' },
+      {
+        icon: '📋',
+        text: 'Copiar Nickname',
+        action: 'copy',
+        handler: async () => {
+          await copyToClipboard(currentVal);
+          setStatus('Nickname copiado al portapapeles: ' + currentVal, true);
+        }
+      },
+      {
+        icon: '🔍',
+        text: 'Buscar por Nickname',
+        action: 'search',
+        handler: () => {
+          q = currentVal.trim();
+          qInp.value = q;
+          render();
+          const tableCard = $('#tableCard');
+          tableCard?.scrollIntoView({ behavior: 'smooth' });
+        }
+      },
+      { type: 'divider' },
+      {
+        icon: '✏️',
+        text: 'Modificar Nickname',
+        action: 'change_nick',
+        handler: async () => {
+          const val = await showPrompt('Modificar Nickname:', currentVal);
+          if (val === null) return;
+          const cleanVal = val.trim();
+          updateField(rowId, 'nickname', cleanVal);
+          setStatus('Nickname modificado', true);
         }
       }
     ];
