@@ -9,12 +9,14 @@
   <link rel="stylesheet" href="./style.css" />
 </head>
 
-<body class="page-left">
+<body class="page-left auth-locked">
   <header>
     <div class="wrap">
       <h1>MS — Contador de Actividades</h1>
       <div class="bar">
-
+        <button id="toggleSidebar" class="btn" type="button" aria-controls="notesPanel"
+          aria-expanded="false" title="Mostrar panel de notas">Notas</button>
+        <button id="logout" class="btn" type="button" title="Cerrar sesión y borrar la copia local de este navegador">Cerrar sesión</button>
         <button id="btnSync" class="btn">Sincronizar</button>
 
         <button id="downloadCSV" class="btn">Descargar Excel (Backup)</button>
@@ -26,9 +28,9 @@
   </header>
 
   <!-- Layout con barra izquierda (Notas) -->
-  <main class="wrap layout">
+  <main class="wrap layout sidebar-collapsed" id="mainLayout">
     <!-- Lateral izquierda -->
-    <aside class="side">
+    <aside class="side" id="notesPanel" hidden>
       <div class="card">
         <div class="notes-header">
           <button id="addNote" class="btn-icon" title="Agregar nota al inicio">➕</button>
@@ -127,16 +129,13 @@
 
       <h2 class="h2">Registros</h2>
       <div class="searchbar">
+        <div class="state-filters" role="group" aria-label="Filtrar registros">
+          <button type="button" class="btn filter-btn" data-state="all" aria-pressed="true">Todos</button>
+          <button type="button" class="btn filter-btn" data-state="pending" aria-pressed="false">Pendientes</button>
+        </div>
+        <button id="clearQ" class="btn">Clear</button>
         <button id="btnPaste" class="btn yellow" title="Pegar del portapapeles">Paste</button>
         <input id="q" type="text" placeholder="Buscar en tabla… (tipo, email, whatsapp, nickname, comentario)" />
-        <select id="stateSel" class="btn">
-          <option value="all" selected>Todos</option>
-          <option value="pending">Pendientes</option>
-          <option value="done">Completados</option>
-          <option value="whatsapp">WhatsApp</option>
-          <option value="email">Email</option>
-        </select>
-        <button id="clearQ" class="btn">Clear</button>
       </div>
 
       <div class="card p0" id="tableCard">
@@ -144,6 +143,7 @@
           <thead>
             <tr>
               <th style="width:60px;">#</th>
+              <th>MSK</th>
               <th id="thDate" class="thclick">Fecha ▼</th>
               <th>Tipo</th>
               <th>Email</th>
@@ -164,6 +164,7 @@
   <footer class="wrap">
     <div class="footerbar">
       <button id="saveNow" class="btn">Guardar ahora</button>
+      <button id="goTop" class="btn" type="button">↑ Ir arriba</button>
       <span class="status pill" id="status">Listo.</span>
     </div>
   </footer>
@@ -186,9 +187,10 @@
   <dialog id="dlgAuth" class="dialog" style="text-align:center;">
     <h3>Acceso Restringido</h3>
     <p>Ingresa el PIN de acceso:</p>
-    <input type="password" id="authPin" placeholder="PIN"
+    <input type="password" id="authPin" placeholder="PIN" inputmode="numeric" autocomplete="off" aria-label="PIN de acceso" aria-describedby="authError"
       style="font-size:1.5rem; text-align:center; width:120px; margin:10px auto; display:block;" />
     <button id="btnAuth" class="btn primary">Ingresar</button>
+    <p id="authError" role="alert" style="color:var(--muted)"></p>
   </dialog>
 
   <!-- Diálogo Prompt genérico para Electron -->

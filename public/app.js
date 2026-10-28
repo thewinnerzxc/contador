@@ -68,7 +68,7 @@ const NOTES_KEY = 'ms_quick_notes_v1';
 
 let rows = [];
 let q = '';                  // filtro texto
-let filterState = 'all';     // all | pending | done
+let filterState = 'all';     // all | pending
 let sortDesc = true;         // por fecha desc
 
 // directorio pares (construido desde rows + importaciones)
@@ -92,13 +92,44 @@ function markLocalInteraction() {
 }
 
 // ================== Auth Logic ==================
-function checkAuth() {
-  if (sessionStorage.getItem('ms_auth') === 'ok') {
-    dlgAuth.close();
-    return;
-  }
-  dlgAuth.showModal();
+const SESSION_DURATION = 8 * 60 * 60 * 1000;
+let unlockSession;
+let authenticated = false;
+function validLocalSession() {
+  const expiry = Number(sessionStorage.getItem('ms_auth_expires'));
+  return sessionStorage.getItem('ms_auth') === 'ok' && expiry > Date.now();
 }
+function checkAuth() {
+  dlgAuth.addEventListener('cancel', event => event.preventDefault());
+  if (validLocalSession()) {
+    authenticated = true;
+    document.body.classList.remove('auth-locked');
+    return Promise.resolve();
+  }
+  sessionStorage.removeItem('ms_auth');
+  sessionStorage.removeItem('ms_auth_expires');
+  dlgAuth.showModal();
+  authPin.focus();
+  return new Promise(resolve => { unlockSession = resolve; });
+}
+function endLocalSession(clearData = false) {
+  authenticated = false;
+  document.body.classList.add('auth-locked');
+  sessionStorage.removeItem('ms_auth');
+  sessionStorage.removeItem('ms_auth_expires');
+  if (clearData) {
+    // Solo cachés de Contador; no altera los datos remotos.
+    [LS_KEY, PAIRS_KEY, NOTES_KEY, LS_FILTER].forEach(key => localStorage.removeItem(key));
+  }
+  location.reload();
+}
+$('#logout')?.addEventListener('click', () => endLocalSession(true));
+setInterval(() => {
+  if (authenticated && !validLocalSession()) endLocalSession();
+}, 15000);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && authenticated && !validLocalSession()) endLocalSession();
+});
 
 // Reusable custom prompt helper since Electron doesn't support window.prompt()
 function showPrompt(title, defaultValue = '') {
@@ -153,9 +184,16 @@ function showPrompt(title, defaultValue = '') {
 btnAuth?.addEventListener('click', () => {
   if (authPin.value === '4147') {
     sessionStorage.setItem('ms_auth', 'ok');
+    sessionStorage.setItem('ms_auth_expires', String(Date.now() + SESSION_DURATION));
+    authPin.value = '';
+    authenticated = true;
+    document.body.classList.remove('auth-locked');
     dlgAuth.close();
+    unlockSession?.();
+    unlockSession = null;
+    $('#authError').textContent = '';
   } else {
-    alert('PIN incorrecto');
+    $('#authError').textContent = 'PIN incorrecto. Intenta nuevamente.';
     authPin.value = '';
     authPin.focus();
   }
@@ -226,14 +264,14 @@ function formatDateHTML(str) {
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+|T)?(\d{2}:\d{2}:\d{2})?/);
   if (m) {
     const [, y, mm, dd, time] = m;
-    const dateBold = `<strong>${dd}-${mm}-${y}</strong>`;
-    return time ? `${dateBold} ${time}` : dateBold;
+    const dateBold = `<strong class="activity-date">${dd}-${mm}-${y}</strong>`;
+    return time ? `${dateBold}<br>${time}` : dateBold;
   }
   const m2 = s.match(/^(\d{2})-(\d{2})-(\d{4})(?:\s+|T)?(\d{2}:\d{2}:\d{2})?/);
   if (m2) {
     const [, dd, mm, y, time] = m2;
-    const dateBold = `<strong>${dd}-${mm}-${y}</strong>`;
-    return time ? `${dateBold} ${time}` : dateBold;
+    const dateBold = `<strong class="activity-date">${dd}-${mm}-${y}</strong>`;
+    return time ? `${dateBold}<br>${time}` : dateBold;
   }
   return esc(s);
 }
@@ -451,9 +489,6 @@ function getFilteredSorted() {
   }
 
   if (filterState === 'pending') list = list.filter(r => !r.estado);
-  else if (filterState === 'done') list = list.filter(r => r.estado);
-  else if (filterState === 'whatsapp') list = list.filter(r => KIND_BY_LABEL(r.tipo) === 2);
-  else if (filterState === 'email') list = list.filter(r => KIND_BY_LABEL(r.tipo) === 3);
 
   return [...list].sort((a, b) => {
     const fa = String(a.fecha || '');
@@ -511,12 +546,12 @@ function ymdLima(date = new Date()) {
 function formatCommentHTML(text) {
   if (!text) return '';
   const parts = text.split('|').map(p => p.trim());
-  
+
   let commentIndex = 0;
   const formattedParts = parts.map((part) => {
     const isEmailAlt = /E-mail alterno:/i.test(part);
     const isWaAlt = /WhatsApp alterno:/i.test(part);
-    
+
     if (isEmailAlt || isWaAlt) {
       return `<strong class="comment-alt-contact">${esc(part)}</strong>`;
     } else {
@@ -528,7 +563,7 @@ function formatCommentHTML(text) {
       }
     }
   });
-  
+
   return formattedParts.join(' | ');
 }
 
@@ -616,6 +651,7 @@ function render() {
     return `
       <tr data-id="${r.id}" class="${rowClass}">
         <td>${nDesc}</td>
+        <td class="muted">—</td>
         <td><span class="muted">${formatDateHTML(r.fecha)}</span></td>
         <td>
           <select class="typeSel ${selClass}" data-id="${r.id}">
@@ -772,14 +808,20 @@ function render() {
 
   // Editables (solo comentario ahora)
   tbody.querySelectorAll('.editable').forEach(el => {
+    el.addEventListener('focus', markLocalInteraction);
+    el.addEventListener('input', markLocalInteraction);
+    let committing = false;
     const commit = () => {
+      // Enter y la pérdida de foco pueden intentar guardar la misma edición.
+      if (committing) return;
+      committing = true;
       const id = +el.dataset.id;
       const field = el.dataset.field;   // "comentario"
       let val = (el.textContent || '').trim();
-      
+
       // Limpiar barras/pipes y espacios adicionales sobrantes al inicio o al final
       val = val.replace(/^[\s|]+|[\s|]+$/g, '').trim();
-      
+
       updateField(id, field, val);
     };
     el.addEventListener('blur', commit);
@@ -1046,6 +1088,12 @@ clearAllFieldsBtn?.addEventListener('click', clearAllActive);
 
 // Eventos de botones de cabecera y pie de página
 $('#downloadCSV')?.addEventListener('click', downloadExcel);
+$('#goTop')?.addEventListener('click', () => {
+  window.scrollTo({
+    top: 0,
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'
+  });
+});
 $('#btnSync')?.addEventListener('click', () => reloadFromDb('sincronizado'));
 $('#saveNow')?.addEventListener('click', async () => {
   await saveNotes();
@@ -1161,16 +1209,31 @@ $('#btnPaste')?.addEventListener('click', async () => {
 
 $('#clearQ').addEventListener('click', () => { q = ''; qInp.value = ''; currentPage = 1; render(); });
 
-// Filtro por estado (persistente)
-// Filtro por estado (persistente)
-if (typeof stateSel !== 'undefined' && stateSel) {
-  stateSel.addEventListener('change', () => {
-    filterState = stateSel.value;
+// Panel oculto en cada inicio; conserva las notas al mostrar/ocultar.
+$('#toggleSidebar').addEventListener('click', () => {
+  const collapsed = $('#mainLayout').classList.toggle('sidebar-collapsed');
+  $('#notesPanel').hidden = collapsed;
+  const toggle = $('#toggleSidebar');
+  toggle.setAttribute('aria-expanded', String(!collapsed));
+  toggle.title = collapsed ? 'Mostrar panel de notas' : 'Ocultar panel de notas';
+});
+
+function updateFilterButtons() {
+  document.querySelectorAll('.filter-btn').forEach(button => {
+    button.setAttribute('aria-pressed', String(button.dataset.state === filterState));
+  });
+}
+
+// Filtro por estado (persistente).
+document.querySelectorAll('.filter-btn').forEach(button => {
+  button.addEventListener('click', () => {
+    filterState = button.dataset.state;
     try { localStorage.setItem(LS_FILTER, filterState); } catch { }
+    updateFilterButtons();
     currentPage = 1; // reset page on filter change
     render();
   });
-}
+});
 
 // Botón "Limpiar todo" - REMOVED per user request
 /*
@@ -1271,7 +1334,7 @@ if (waOpen) {
   waOpen.addEventListener('click', () => {
     const link = buildWaLink(waQuick?.value || '');
     if (!link) { setStatus('Ingresa un número válido', false); return; }
-    
+
     const isElectron = typeof process !== 'undefined' && process.versions && process.versions.electron;
     if (isElectron) {
       try {
@@ -1357,6 +1420,7 @@ const notesSearch = $('#searchNotes');
 const getNotesText = () => notesArea.innerText || '';
 
 async function saveNotes() {
+  if (!authenticated || !validLocalSession()) return;
   const txt = getNotesText();
   try {
     localStorage.setItem(NOTES_KEY, txt);
@@ -1373,13 +1437,6 @@ function saveNotesDebounced() {
   clearTimeout(notesArea._t);
   notesArea._t = setTimeout(saveNotes, 500);
 }
-
-// Initial Load
-try {
-  const saved = localStorage.getItem(NOTES_KEY) || '';
-  notesArea.innerText = saved;
-  notesStatus.textContent = 'Cargado.';
-} catch { }
 
 // Clear highlights when focusing the notes
 notesArea.addEventListener('focus', () => {
@@ -1536,6 +1593,7 @@ notesSearch?.addEventListener('input', (e) => {
 // ====== Recargar CSV desde la conexión actual (carpeta o archivo) ======
 // ====== Recargar desde DB ======
 async function reloadFromDb(note = 'sincronizado') {
+  if (!authenticated || !validLocalSession()) return;
   if (!isDbConnected()) return;
 
   // Evitar recarga si el usuario está editando tabla
@@ -1560,6 +1618,11 @@ async function reloadFromDb(note = 'sincronizado') {
 
     // 2. Sync Tabla
     let arr = await fetchAll();
+
+    // La edición puede comenzar mientras esperamos la respuesta del servidor.
+    if (document.activeElement && document.activeElement.closest('.editable')) {
+      return;
+    }
 
     // Check if a local interaction happened DURING the fetch
     if (lastLocalInteractionTime !== interactionTimeAtStart) {
@@ -1654,7 +1717,11 @@ function startAutoSync() {
 
 // ================== Init ==================
 (async function init() {
-  checkAuth();
+  await checkAuth();
+  try {
+    notesArea.innerText = localStorage.getItem(NOTES_KEY) || '';
+    notesStatus.textContent = 'Cargado.';
+  } catch { }
   // 1) Cargar localStorage
   rows = (loadLocal() || []).map((r, i) => {
     // migraciones antiguas (boolean estado, WA sucia)
@@ -1668,11 +1735,9 @@ function startAutoSync() {
   // filtro persistente
   try {
     const stored = localStorage.getItem(LS_FILTER);
-    if (stored) {
-      filterState = stored;
-      if (stateSel) stateSel.value = stored;
-    }
+    filterState = stored === 'pending' ? 'pending' : 'all';
   } catch { }
+  updateFilterButtons();
 
   buildDir();
   render();
@@ -1729,21 +1794,21 @@ function showContextMenu(e, items) {
 
   // Mostrar el menú
   customContextMenu.style.display = 'block';
-  
+
   // Calcular posición evitando salirse de la pantalla
   const menuWidth = customContextMenu.offsetWidth || 240;
   const menuHeight = customContextMenu.offsetHeight || 180;
-  
+
   let left = e.pageX;
   let top = e.pageY;
-  
+
   if (left + menuWidth > window.innerWidth + window.scrollX) {
     left = window.innerWidth + window.scrollX - menuWidth - 10;
   }
   if (top + menuHeight > window.innerHeight + window.scrollY) {
     top = window.innerHeight + window.scrollY - menuHeight - 10;
   }
-  
+
   customContextMenu.style.left = `${left}px`;
   customContextMenu.style.top = `${top}px`;
 
@@ -1776,6 +1841,7 @@ document.addEventListener('click', (e) => {
 function startAddComment(rowId) {
   const r = rows.find(x => x.id === rowId);
   if (!r) return;
+  markLocalInteraction();
 
   let currentText = (r.comentario || '').trim();
   if (currentText) {
@@ -1814,14 +1880,14 @@ document.addEventListener('contextmenu', (e) => {
   const mailEl = e.target.closest('.copy-mail');
   const waEl = e.target.closest('.copy-wa');
   const nickEl = e.target.closest('.copy-nick');
-  
+
   if (mailEl) {
     e.preventDefault();
     const rowId = +mailEl.closest('tr').dataset.id;
     const currentVal = mailEl.getAttribute('data-email');
     const r = rows.find(x => x.id === rowId);
     if (!r) return;
-    
+
     // Resaltar elemento en la tabla
     clearTableHighlights();
     mailEl.classList.add('picked');
@@ -1873,7 +1939,7 @@ document.addEventListener('contextmenu', (e) => {
             alert('Email no válido');
             return;
           }
-          
+
           let currentComment = (r.comentario || '').trim();
           const altText = `E-mail alterno: ${cleanVal}`;
           if (currentComment) {
@@ -1884,7 +1950,7 @@ document.addEventListener('contextmenu', (e) => {
           } else {
             currentComment = altText;
           }
-          
+
           updateField(rowId, 'comentario', currentComment);
           setStatus('Email alternativo agregado', true);
         }
@@ -1898,7 +1964,7 @@ document.addEventListener('contextmenu', (e) => {
           if (val === null) return;
           const cleanVal = val.trim();
           if (!cleanVal) return;
-          
+
           let currentComment = (r.comentario || '').trim();
           const altText = `Telegram: ${cleanVal}`;
           if (currentComment) {
@@ -1909,7 +1975,7 @@ document.addEventListener('contextmenu', (e) => {
           } else {
             currentComment = altText;
           }
-          
+
           updateField(rowId, 'comentario', currentComment);
           setStatus('Telegram agregado', true);
         }
@@ -1928,7 +1994,7 @@ document.addEventListener('contextmenu', (e) => {
             alert('Email no válido');
             return;
           }
-          
+
           // Mover anterior a alternativo en el comentario
           let currentComment = (r.comentario || '').trim();
           const altText = `E-mail alterno: ${currentVal}`;
@@ -1940,7 +2006,7 @@ document.addEventListener('contextmenu', (e) => {
           } else {
             currentComment = altText;
           }
-          
+
           updateRowFields(rowId, {
             email: cleanVal,
             comentario: currentComment
@@ -2007,7 +2073,7 @@ document.addEventListener('contextmenu', (e) => {
           if (val === null) return;
           const cleanVal = digitsOnly(val);
           if (!cleanVal) return;
-          
+
           let currentComment = (r.comentario || '').trim();
           const altText = `WhatsApp alterno: ${cleanVal}`;
           if (currentComment) {
@@ -2018,7 +2084,7 @@ document.addEventListener('contextmenu', (e) => {
           } else {
             currentComment = altText;
           }
-          
+
           updateField(rowId, 'comentario', currentComment);
           setStatus('WhatsApp alternativo agregado', true);
         }
@@ -2032,7 +2098,7 @@ document.addEventListener('contextmenu', (e) => {
           if (val === null) return;
           const cleanVal = val.trim();
           if (!cleanVal) return;
-          
+
           let currentComment = (r.comentario || '').trim();
           const altText = `Telegram: ${cleanVal}`;
           if (currentComment) {
@@ -2043,7 +2109,7 @@ document.addEventListener('contextmenu', (e) => {
           } else {
             currentComment = altText;
           }
-          
+
           updateField(rowId, 'comentario', currentComment);
           setStatus('Telegram agregado', true);
         }
@@ -2057,7 +2123,7 @@ document.addEventListener('contextmenu', (e) => {
           if (val === null) return;
           const cleanVal = digitsOnly(val);
           if (!cleanVal) return;
-          
+
           // Mover anterior a alternativo en el comentario
           let currentComment = (r.comentario || '').trim();
           const altText = `WhatsApp alterno: ${currentVal}`;
@@ -2069,7 +2135,7 @@ document.addEventListener('contextmenu', (e) => {
           } else {
             currentComment = altText;
           }
-          
+
           updateRowFields(rowId, {
             whatsapp: cleanVal,
             comentario: currentComment
@@ -2141,3 +2207,30 @@ document.addEventListener('contextmenu', (e) => {
   }
 });
 
+
+// Mantener el inicio del formulario alineado con Paste al redimensionar.
+function alignRegistrationWithPaste() {
+  const content = document.querySelector('.content');
+  const paste = document.querySelector('#btnPaste');
+  if (!content || !paste) return;
+  const offset = Math.max(0, paste.getBoundingClientRect().left - content.getBoundingClientRect().left);
+  content.style.setProperty('--registration-offset', offset + 'px');
+}
+const registrationObserver = new ResizeObserver(alignRegistrationWithPaste);
+registrationObserver.observe(document.querySelector('.searchbar'));
+registrationObserver.observe(document.querySelector('.state-filters'));
+window.addEventListener('resize', alignRegistrationWithPaste);
+document.fonts.ready.then(alignRegistrationWithPaste);
+alignRegistrationWithPaste();
+
+// Medir las barras para que no se superpongan al cambiar ancho o zoom.
+function updateStickyHeights() {
+  const header = document.querySelector('header');
+  const searchbar = document.querySelector('.searchbar');
+  document.documentElement.style.setProperty('--header-height', header.getBoundingClientRect().height + 'px');
+  document.documentElement.style.setProperty('--searchbar-height', searchbar.getBoundingClientRect().height + 'px');
+}
+const stickyHeightsObserver = new ResizeObserver(updateStickyHeights);
+stickyHeightsObserver.observe(document.querySelector('header'));
+stickyHeightsObserver.observe(document.querySelector('.searchbar'));
+updateStickyHeights();

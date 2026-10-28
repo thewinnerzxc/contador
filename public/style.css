@@ -1145,4 +1145,99 @@ dialog::backdrop {
 .comment-old {
   color: var(--muted); /* Gris blanquecino para comentarios anteriores */
 }
-
+
+/* Panel de notas y filtros de registros. */
+.layout {
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+}
+
+.layout.sidebar-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.side[hidden] {
+  display: none;
+}
+
+.content,
+.searchbar input {
+  min-width: 0;
+}
+
+/* Filtros y títulos visibles durante el desplazamiento de los registros. */
+.content > .searchbar {
+  position: sticky;
+  top: var(--header-height, 118px);
+  z-index: 4;
+  background: var(--bg);
+  margin-bottom: 0;
+  padding: 10px 0;
+}
+
+#tableCard table {
+  overflow: visible;
+}
+
+#tableCard thead th {
+  position: sticky;
+  top: calc(var(--header-height, 118px) + var(--searchbar-height, 58px));
+  z-index: 3;
+  box-shadow: 0 1px 0 var(--line);
+}
+
+.activity-date {
+  white-space: nowrap;
+}
+
+/* Alinear el formulario con Paste, conservando el ancho de la tabla. */
+@media (min-width: 1001px) {
+  .content > .sectionbar,
+  .content > .actions {
+    margin-left: var(--registration-offset, 0px);
+  }
+}
+
+.state-filters {
+  display: flex;
+  gap: 6px;
+}
+
+.filter-btn[aria-pressed="true"],
+#toggleSidebar[aria-expanded="true"] {
+  background: var(--t1bg);
+  border-color: var(--t1);
+  color: var(--ink);
+}
+
+@media (max-width: 1000px) {
+  .layout,
+  .layout.sidebar-collapsed {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .side,
+  .content {
+    grid-column: 1;
+  }
+
+  .side {
+    position: static;
+  }
+
+  .searchbar {
+    flex-wrap: wrap;
+  }
+
+  .searchbar input {
+    flex-basis: 50%;
+  }
+}
+
+/* Ocultar el contenido antes de validar la sesión local. */
+body.auth-locked > header,
+body.auth-locked > main,
+body.auth-locked > footer,
+body.auth-locked > #customContextMenu {
+  visibility: hidden;
+}
