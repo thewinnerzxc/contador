@@ -1191,7 +1191,6 @@ dialog::backdrop {
 
 /* Alinear el formulario con Paste, conservando el ancho de la tabla. */
 @media (min-width: 1001px) {
-  .content > .sectionbar,
   .content > .actions {
     margin-left: var(--registration-offset, 0px);
   }
@@ -1241,3 +1240,67 @@ body.auth-locked > footer,
 body.auth-locked > #customContextMenu {
   visibility: hidden;
 }
+
+.searchbar-spacer {
+  display: block;
+  flex: 0 0 auto;
+}
+@media (max-width: 1000px) {
+  .searchbar-spacer { display: none; }
+}
+
+/* Formularios y Paste alineados con Descargar, con o sin notas. */
+@media (min-width: 1001px) {
+  .layout:not(.sidebar-collapsed) {
+    grid-template-columns: var(--notes-column-width, 300px) minmax(0, 1fr);
+  }
+  .content > .searchbar {
+    margin-left: var(--registration-offset, 0px);
+  }
+}
+.searchbar-spacer { display: none; }
+
+.delete-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+}
+.delete-icon:hover {
+  color: #fca5a5;
+  border-color: #ef4444;
+}
+
+/* Confirmación de eliminación con el tema de Contador. */
+dialog.delete-dialog {
+  width: min(460px, calc(100vw - 32px));
+  min-width: 0;
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: 0 24px 70px #0008;
+}
+.delete-dialog h3 { margin: 0 0 18px; }
+.delete-preview {
+  padding: 14px;
+  background: var(--input-bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+}
+.delete-preview strong { color: var(--t1); }
+.delete-preview p {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  max-height: 30vh;
+  overflow-y: auto;
+}
+.delete-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+.date-history-btn { border: 0; background: transparent; color: var(--muted); font: inherit; text-align: left; padding: 0; cursor: pointer; }
+.date-history-btn:hover { color: var(--t1); }
+.date-history-btn:focus-visible { outline: 2px solid var(--t1); outline-offset: 4px; }
+.date-history-dialog { width: min(460px, calc(100vw - 32px)); }
+#dateHistoryList { max-height: 45vh; overflow-y: auto; padding-left: 24px; }
+#dateHistoryList li { padding: 8px 0; border-bottom: 1px solid var(--line); }
+
+#historyStorageNotice[hidden] { display: none; }

@@ -69,6 +69,7 @@ export async function saveRow(row) {
     const payload = {
         id: row.id,
         fecha: row.fecha,
+        fecha_historial: row.fecha_historial || [],
         tipo: row.tipo,
         email: row.email,
         whatsapp: row.whatsapp,
@@ -81,14 +82,21 @@ export async function saveRow(row) {
         .upsert(payload);
 
     if (error) {
-        console.error('Error saving row in Supabase:', error);
-        // Fallback: Si la columna nickname aún no existe en el esquema de Supabase, reintentar sin nickname para no perder el registro
-        delete payload.nickname;
-        const { error: fallbackErr } = await supabase
-            .from('activities')
-            .upsert(payload);
-        if (fallbackErr) {
-            console.error('Fallback saveRow error:', fallbackErr);
+        // Compatibilidad mientras se habilita la columna de historial remoto.
+        let remainingError = error;
+        for (const field of ['fecha_historial', 'nickname']) {
+            if (remainingError && String(remainingError.message || '').includes(field)) {
+                delete payload[field];
+                if (field === 'fecha_historial') {
+                    window.dispatchEvent(new CustomEvent('date-history-local-only'));
+                }
+                const result = await supabase.from('activities').upsert(payload);
+                remainingError = result.error;
+            }
+        }
+        if (remainingError) {
+            console.error('Error saving row:', remainingError);
+            throw new Error(remainingError.message || 'No se pudo guardar');
         }
     }
 }
@@ -128,61 +136,51 @@ export async function bulkUpsert(rows) {
 // ====== Notes ======
 
 export async function getNote() {
-    if (!supabase) return '';
+    if (!supabase) throw new Error('Sin conexión a Supabase');
     const { data, error } = await supabase
         .from('notes')
         .select('content')
         .eq('id', 1)
-        .single();
+        .maybeSingle();
 
-    if (error) {
-        // Si no existe, no es error grave, retorna vacío
-        return '';
-    }
+    if (error) throw new Error(error.message);
     return data?.content || '';
 }
 
 export async function saveNote(content) {
-    if (!supabase) return;
+    if (!supabase) throw new Error('Sin conexión a Supabase');
     const { error } = await supabase
         .from('notes')
         .upsert({ id: 1, content });
 
-    if (error) console.error('Error saving note:', error);
+    if (error) throw new Error(error.message);
 }
 
 
 // ====== Contacts ======
 
 export async function getContacts() {
-    if (!supabase) return [];
-    const { data, error } = await supabase
-        .from('contacts')
-        .select('email, whatsapp, nickname');
-
-    if (error) {
-        const { data: fallbackData } = await supabase.from('contacts').select('email, whatsapp');
-        return fallbackData || [];
+    if (!supabase) throw new Error('Sin conexión a Supabase');
+    const all = [];
+    for (let start = 0; ; start += 1000) {
+        const { data, error } = await supabase.from('contacts').select('email, whatsapp, nickname')
+            .order('email').order('whatsapp').range(start, start + 999);
+        if (error) throw new Error(error.message);
+        all.push(...(data || []));
+        if (!data || data.length < 1000) return all;
     }
-    return data || [];
 }
-
 export async function saveContactsBulk(pairs) {
-    if (!supabase || !pairs.length) return;
-
-    // Filtrar vacíos
-    const valid = pairs.filter(p => p.email || p.whatsapp || p.nickname);
-    if (!valid.length) return;
-
-    // Upsert con ignoreDuplicates: true para evitar error de violación de unique
-    const { error } = await supabase
-        .from('contacts')
-        .upsert(valid, { onConflict: 'email, whatsapp', ignoreDuplicates: true });
-
-    if (error) {
-        const legacyValid = valid.map(p => ({ email: p.email || '', whatsapp: p.whatsapp || '' })).filter(p => p.email || p.whatsapp);
-        if (legacyValid.length) {
-            await supabase.from('contacts').upsert(legacyValid, { onConflict: 'email, whatsapp', ignoreDuplicates: true });
-        }
+    if (!pairs.length) return;
+    if (!supabase) throw new Error('Sin conexión a Supabase');
+    const unique = new Map();
+    for (const p of pairs) {
+        const row = { email: (p.email || '').trim().toLowerCase(), whatsapp: String(p.whatsapp || '').replace(/\D/g, ''), nickname: (p.nickname || '').trim() };
+        if (row.email || row.whatsapp || row.nickname) unique.set(JSON.stringify([row.email, row.whatsapp]), row);
+    }
+    const valid = [...unique.values()];
+    for (let i = 0; i < valid.length; i += 500) {
+        const { error } = await supabase.from('contacts').upsert(valid.slice(i, i + 500), { onConflict: 'email, whatsapp' });
+        if (error) throw new Error(error.message);
     }
 }

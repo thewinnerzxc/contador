@@ -15,22 +15,25 @@
       <h1>MS — Contador de Actividades</h1>
       <div class="bar">
         <button id="toggleSidebar" class="btn" type="button" aria-controls="notesPanel"
-          aria-expanded="false" title="Mostrar panel de notas">Notas</button>
+          aria-expanded="true" title="Ocultar panel de notas">Notas</button>
         <button id="logout" class="btn" type="button" title="Cerrar sesión y borrar la copia local de este navegador">Cerrar sesión</button>
         <button id="btnSync" class="btn">Sincronizar</button>
 
         <button id="downloadCSV" class="btn">Descargar Excel (Backup)</button>
         <button id="btnBulk" class="btn warn">Bulk import</button>
         <span id="dbStatus" class="pill">DB: —</span>
+        <span id="historyStorageNotice" class="pill" hidden>Historial de fechas solo local: falta habilitar Supabase</span>
+        <button id="clearAllFields" class="btn danger">Clear all</button>
+        <button id="clearForms" class="btn ghost">Clear</button>
       </div>
 
     </div>
   </header>
 
   <!-- Layout con barra izquierda (Notas) -->
-  <main class="wrap layout sidebar-collapsed" id="mainLayout">
+  <main class="wrap layout" id="mainLayout">
     <!-- Lateral izquierda -->
-    <aside class="side" id="notesPanel" hidden>
+    <aside class="side" id="notesPanel">
       <div class="card">
         <div class="notes-header">
           <button id="addNote" class="btn-icon" title="Agregar nota al inicio">➕</button>
@@ -69,15 +72,7 @@
 
     <!-- Columna principal -->
     <section class="content">
-      <div class="sectionbar">
-        <h2 class="h2">Registrar actividad</h2>
-        <div class="bar-btns">
-          <button id="clearAllFields" class="btn danger">Clear all</button>
-          <button id="clearForms" class="btn ghost">Clear</button>
-        </div>
-      </div>
-
-      <div class="actions">
+      <div class="actions" aria-label="Registrar actividad">
         <!-- 1 (Antes 2) -->
         <div class="row t2">
           <button class="tag tag-btn" id="pasteRow2">1) WhatsApp</button>
@@ -127,15 +122,15 @@
         </div>
       </div>
 
-      <h2 class="h2">Registros</h2>
-      <div class="searchbar">
+      <div class="searchbar" aria-label="Buscar y filtrar registros">
+        <span class="searchbar-spacer" aria-hidden="true"></span>
+        <button id="btnPaste" class="btn yellow" title="Pegar del portapapeles">Paste</button>
+        <input id="q" type="text" aria-label="Buscar registros" placeholder="Buscar en tabla… (tipo, email, whatsapp, nickname, comentario)" />
         <div class="state-filters" role="group" aria-label="Filtrar registros">
           <button type="button" class="btn filter-btn" data-state="all" aria-pressed="true">Todos</button>
           <button type="button" class="btn filter-btn" data-state="pending" aria-pressed="false">Pendientes</button>
         </div>
         <button id="clearQ" class="btn">Clear</button>
-        <button id="btnPaste" class="btn yellow" title="Pegar del portapapeles">Paste</button>
-        <input id="q" type="text" placeholder="Buscar en tabla… (tipo, email, whatsapp, nickname, comentario)" />
       </div>
 
       <div class="card p0" id="tableCard">
@@ -143,7 +138,6 @@
           <thead>
             <tr>
               <th style="width:60px;">#</th>
-              <th>MSK</th>
               <th id="thDate" class="thclick">Fecha ▼</th>
               <th>Tipo</th>
               <th>Email</th>
@@ -181,6 +175,27 @@
       <button id="bulkCancel" class="btn">Cancelar</button>
       <button id="bulkImport" class="btn primary">Importar</button>
     </div>
+  </dialog>
+
+  <dialog id="dlgDelete" class="dialog delete-dialog" aria-labelledby="deleteTitle" aria-describedby="deleteWarning">
+    <h3 id="deleteTitle">¿Eliminar este registro?</h3>
+    <div class="delete-preview">
+      <strong id="deleteContact"></strong>
+      <p id="deleteComment"></p>
+    </div>
+    <p id="deleteWarning" class="muted">Esta acción no se puede deshacer.</p>
+    <form method="dialog" class="delete-actions">
+      <button id="deleteCancel" class="btn" value="cancel" autofocus>Cancelar</button>
+      <button class="btn danger" value="delete">Eliminar</button>
+    </form>
+  </dialog>
+
+  <dialog id="dlgDateHistory" class="dialog date-history-dialog" aria-labelledby="dateHistoryTitle">
+    <h3 id="dateHistoryTitle">Historial de fechas</h3>
+    <p id="dateHistoryContact" class="muted"></p>
+    <p class="muted">Fechas conservadas desde que se activó este historial. Hora de Lima.</p>
+    <ol id="dateHistoryList"></ol>
+    <form method="dialog"><button class="btn" autofocus>Cerrar</button></form>
   </dialog>
 
   <!-- Diálogo Auth -->

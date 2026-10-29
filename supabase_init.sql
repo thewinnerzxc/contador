@@ -49,3 +49,5 @@ create policy "Allow public update notes" on notes for update to anon using (tru
 create policy "Allow public read contacts" on contacts for select to anon using (true);
 create policy "Allow public insert contacts" on contacts for insert to anon with check (true);
 create policy "Allow public update contacts" on contacts for update to anon using (true);
+
+alter table public.activities add column if not exists fecha_historial jsonb not null default '[]'::jsonb;

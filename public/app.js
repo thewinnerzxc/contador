@@ -65,6 +65,8 @@ const LS_KEY = 'ms_activity_log_v2';
 const LS_FILTER = 'ms_filter_state_v2';
 const PAIRS_KEY = 'ms_pairs_v1';
 const NOTES_KEY = 'ms_quick_notes_v1';
+const NOTES_PENDING = 'ms_notes_pending_v1';
+const PAIRS_PENDING = 'ms_pairs_pending_v1';
 
 let rows = [];
 let q = '';                  // filtro texto
@@ -119,17 +121,33 @@ function endLocalSession(clearData = false) {
   sessionStorage.removeItem('ms_auth_expires');
   if (clearData) {
     // Solo cachés de Contador; no altera los datos remotos.
-    [LS_KEY, PAIRS_KEY, NOTES_KEY, LS_FILTER].forEach(key => localStorage.removeItem(key));
+    [LS_KEY, PAIRS_KEY, NOTES_KEY, LS_FILTER, NOTES_PENDING, PAIRS_PENDING].forEach(key => localStorage.removeItem(key));
   }
   location.reload();
 }
-$('#logout')?.addEventListener('click', () => endLocalSession(true));
+$('#logout')?.addEventListener('click', () => {
+  if ((localStorage.getItem(NOTES_PENDING) || localStorage.getItem(PAIRS_PENDING)) && !window.confirm('Hay notas o contactos pendientes de enviar a Supabase. Cerrar sesión borrará su copia local. ¿Cerrar sesión de todos modos?')) return;
+  endLocalSession(true);
+});
 setInterval(() => {
   if (authenticated && !validLocalSession()) endLocalSession();
 }, 15000);
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && authenticated && !validLocalSession()) endLocalSession();
 });
+
+function confirmDelete(row, contact) {
+  const dialog = $('#dlgDelete');
+  if (dialog.open) return Promise.resolve(false);
+  $('#deleteContact').textContent = contact;
+  $('#deleteComment').textContent = row.comentario || 'Sin comentario';
+  dialog.returnValue = 'cancel';
+  return new Promise(resolve => {
+    dialog.addEventListener('close', () => resolve(dialog.returnValue === 'delete'), { once: true });
+    dialog.showModal();
+    $('#deleteCancel').focus();
+  });
+}
 
 // Reusable custom prompt helper since Electron doesn't support window.prompt()
 function showPrompt(title, defaultValue = '') {
@@ -361,6 +379,7 @@ function sanitizeRow(r, idx) {
   const out = {
     id: Number.isFinite(+r.id) ? +r.id : (idx + 1),
     fecha: String(r.fecha || ''),
+    fecha_historial: Array.isArray(r.fecha_historial) ? r.fecha_historial.filter(d => /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(d)) : [],
     tipo: r.tipo && [TYPES[2], TYPES[3]].includes(r.tipo)
       ? r.tipo
       : (r.tipo || ''),
@@ -393,8 +412,9 @@ function loadPairs() {
   try { return JSON.parse(localStorage.getItem(PAIRS_KEY) || '[]'); }
   catch { return []; }
 }
-function savePairs(arr) {
+function savePairs(arr, pending = true) {
   localStorage.setItem(PAIRS_KEY, JSON.stringify(arr || []));
+  if (pending) localStorage.setItem(PAIRS_PENDING, '1');
 }
 
 function cleanNick(nick) {
@@ -567,13 +587,29 @@ function formatCommentHTML(text) {
   return formattedParts.join(' | ');
 }
 
+function recordEditDate(row) {
+  const history = Array.isArray(row.fecha_historial) ? row.fecha_historial : [];
+  row.fecha_historial = [...new Set([...history, row.fecha].filter(Boolean))];
+  row.fecha = nowStr();
+}
+function showDateHistory(id) {
+  const row = rows.find(r => r.id === id);
+  if (!row) return;
+  const dates = [...new Set([...(row.fecha_historial || []), row.fecha])].sort().reverse();
+  $('#dateHistoryContact').textContent = row.email || row.whatsapp || row.nickname || 'Registro';
+  $('#dateHistoryList').innerHTML = dates.map((date, index) => '<li>' + formatDateHTML(date) + (index === 0 ? ' <span class="muted">(actual)</span>' : '') + '</li>').join('');
+  $('#dlgDateHistory').showModal();
+}
+
 function updateRowFields(id, updates) {
   const r = rows.find(x => x.id === id);
   if (!r) return;
+  const changed = Object.entries(updates).some(([field, value]) => r[field] !== (field === 'whatsapp' ? digitsOnly(value) : value));
+  if (!changed) return;
   for (const [field, value] of Object.entries(updates)) {
     r[field] = (field === 'whatsapp') ? digitsOnly(value) : value;
   }
-  r.fecha = nowStr();
+  recordEditDate(r);
   markLocalInteraction();
   saveLocal(); buildDir(); render();
   if (isDbConnected()) {
@@ -590,8 +626,9 @@ function updateField(id, field, value) {
   const r = rows.find(x => x.id === id);
   if (!r) return;
   const v = (field === 'whatsapp') ? digitsOnly(value) : value;
+  if (r[field] === v) return;
   r[field] = v;
-  r.fecha = nowStr();
+  recordEditDate(r);
   markLocalInteraction(); // <---
   saveLocal(); buildDir(); render();
   if (isDbConnected()) {
@@ -651,8 +688,7 @@ function render() {
     return `
       <tr data-id="${r.id}" class="${rowClass}">
         <td>${nDesc}</td>
-        <td class="muted">—</td>
-        <td><span class="muted">${formatDateHTML(r.fecha)}</span></td>
+        <td><button type="button" class="date-history-btn" data-history="${r.id}" title="Ver historial de fechas" aria-label="Ver historial de fechas">${formatDateHTML(r.fecha)}</button></td>
         <td>
           <select class="typeSel ${selClass}" data-id="${r.id}">
             <option value="2" ${kind === 2 ? 'selected' : ''}>W</option>
@@ -674,7 +710,11 @@ function render() {
             <div class="editable" contenteditable="true" data-id="${r.id}" data-field="comentario">${formatCommentHTML(r.comentario)}</div>
           </div>
         </td>
-        <td><button class="btn" data-del="${r.id}">Eliminar</button></td>
+        <td><button class="btn delete-icon" data-del="${r.id}" title="Eliminar registro" aria-label="Eliminar registro">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6" />
+          </svg>
+        </button></td>
       </tr>
     `;
   }).join('');
@@ -777,10 +817,18 @@ function render() {
     });
   });
 
+  tbody.querySelectorAll('[data-history]').forEach(button => {
+    button.addEventListener('click', () => showDateHistory(+button.dataset.history));
+  });
+
   // Eliminar
   tbody.querySelectorAll('[data-del]').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const id = +btn.dataset.del;
+      const row = rows.find(r => r.id === id);
+      if (!row) return;
+      const contact = row.email || row.whatsapp || row.nickname || 'Sin contacto';
+      if (!await confirmDelete(row, contact)) return;
       rows = rows.filter(r => r.id !== id);
       markLocalInteraction(); // <---
       saveLocal(); buildDir(); render();
@@ -1209,7 +1257,7 @@ $('#btnPaste')?.addEventListener('click', async () => {
 
 $('#clearQ').addEventListener('click', () => { q = ''; qInp.value = ''; currentPage = 1; render(); });
 
-// Panel oculto en cada inicio; conserva las notas al mostrar/ocultar.
+// Panel visible en cada inicio; conserva las notas al mostrar/ocultar.
 $('#toggleSidebar').addEventListener('click', () => {
   const collapsed = $('#mainLayout').classList.toggle('sidebar-collapsed');
   $('#notesPanel').hidden = collapsed;
@@ -1419,18 +1467,30 @@ const notesSearch = $('#searchNotes');
 // Helper to get plain text from notesArea
 const getNotesText = () => notesArea.innerText || '';
 
+let savingNotes = false;
 async function saveNotes() {
   if (!authenticated || !validLocalSession()) return;
   const txt = getNotesText();
+  if (savingNotes) {
+    localStorage.setItem(NOTES_KEY, txt);
+    localStorage.setItem(NOTES_PENDING, '1');
+    return;
+  }
   try {
     localStorage.setItem(NOTES_KEY, txt);
+    localStorage.setItem(NOTES_PENDING, '1');
     if (isDbConnected()) {
+      savingNotes = true;
       await saveNote(txt);
-      notesStatus.textContent = 'Guardado en DB ' + new Date().toLocaleTimeString();
+      if (getNotesText() === txt) localStorage.removeItem(NOTES_PENDING);
+      notesStatus.textContent = localStorage.getItem(NOTES_PENDING) ? 'Cambios pendientes de enviar' : 'Guardado en Supabase ' + new Date().toLocaleTimeString();
     } else {
       notesStatus.textContent = 'Guardado local ' + new Date().toLocaleTimeString();
     }
-  } catch { }
+  } catch (error) {
+    notesStatus.textContent = 'Guardado local · pendiente de Supabase';
+    notesStatus.title = error.message;
+  } finally { savingNotes = false; }
 }
 
 function saveNotesDebounced() {
@@ -1604,11 +1664,12 @@ async function reloadFromDb(note = 'sincronizado') {
   const interactionTimeAtStart = lastLocalInteractionTime; // Snapshot before fetch
 
   try {
+    if (localStorage.getItem(NOTES_PENDING)) await saveNotes();
     // 1. Sync Notas (si no está escribiendo en ellas)
-    if (note === 'auto-sync' && document.activeElement !== notesArea) {
+    if (document.activeElement !== notesArea && !localStorage.getItem(NOTES_PENDING)) {
       try {
         const serverNote = await getNote();
-        if (serverNote !== getNotesText()) {
+        if (document.activeElement !== notesArea && !localStorage.getItem(NOTES_PENDING) && serverNote !== getNotesText()) {
           notesArea.innerText = serverNote;
           localStorage.setItem(NOTES_KEY, serverNote);
           notesStatus.textContent = 'Sincronizado ' + new Date().toLocaleTimeString();
@@ -1644,6 +1705,7 @@ async function reloadFromDb(note = 'sincronizado') {
       rows.forEach(localR => {
         const serverR = serverMap.get(localR.id);
         if (serverR) {
+          serverR.fecha_historial = [...new Set([...(serverR.fecha_historial || []), ...(localR.fecha_historial || [])])].sort();
           if (!serverR.nickname && localR.nickname) {
             serverR.nickname = localR.nickname;
           }
@@ -1683,6 +1745,11 @@ async function reloadFromDb(note = 'sincronizado') {
 
   // 3. Sync Contactos (Dictionary) - Silent
   try {
+    if (localStorage.getItem(PAIRS_PENDING)) {
+      const snapshot = localStorage.getItem(PAIRS_KEY);
+      await saveContactsBulk(loadPairs());
+      if (localStorage.getItem(PAIRS_KEY) === snapshot) localStorage.removeItem(PAIRS_PENDING);
+    }
     const contacts = await getContacts();
     if (contacts && contacts.length) {
       // Merge con lo local
@@ -1690,17 +1757,20 @@ async function reloadFromDb(note = 'sincronizado') {
       const map = new Map();
       // Prioridad: DB > Local? O mezcla. Mezclamos.
       pairs.forEach(p => {
-        const k = cleanEmail(p.email) || digitsOnly(p.whatsapp);
+        const k = JSON.stringify([cleanEmail(p.email), digitsOnly(p.whatsapp)]);
         if (k) map.set(k, p);
       });
       contacts.forEach(c => {
-        const k = cleanEmail(c.email) || digitsOnly(c.whatsapp);
-        if (k) map.set(k, { email: c.email || '', whatsapp: c.whatsapp || '' });
+        const k = JSON.stringify([cleanEmail(c.email), digitsOnly(c.whatsapp)]);
+        if (k) map.set(k, { email: c.email || '', whatsapp: c.whatsapp || '', nickname: c.nickname || '' });
       });
-      savePairs([...map.values()]);
+      savePairs([...map.values()], false);
       buildDir();
     }
-  } catch (e) { console.warn('Contacts sync error:', e); }
+  } catch (e) {
+    console.warn('Contacts sync error:', e);
+    setStatus('Contactos: pendiente de Supabase · ' + e.message, false);
+  }
 }
 
 // ====== Normaliza/Parchea después de cargar desde carpeta ======
@@ -1769,6 +1839,17 @@ function startAutoSync() {
       console.warn('Migration check failed:', e);
     }
 
+    // Importar el directorio local una sola vez; conservar el remoto al reabrir.
+    if (!localStorage.getItem('ms_pairs_cloud_initialized')) {
+      try {
+        const remote = await getContacts();
+        const merged = new Map(loadPairs().map(p => [JSON.stringify([cleanEmail(p.email), digitsOnly(p.whatsapp)]), p]));
+        remote.forEach(p => merged.set(JSON.stringify([cleanEmail(p.email), digitsOnly(p.whatsapp)]), p));
+        savePairs([...merged.values()]);
+        localStorage.setItem('ms_pairs_cloud_initialized', '1');
+      } catch (error) { setStatus('Contactos pendientes de Supabase: ' + error.message, false); }
+    }
+    await reloadFromDb('sincronizado');
     startAutoSync();
   } else {
     // Si falla, el propio initDB suele alertar, pero actualizamos UI por si acaso
@@ -1843,14 +1924,7 @@ function startAddComment(rowId) {
   if (!r) return;
   markLocalInteraction();
 
-  let currentText = (r.comentario || '').trim();
-  if (currentText) {
-    if (!currentText.startsWith('|') && !currentText.startsWith(' |')) {
-      r.comentario = ' | ' + currentText;
-    }
-  } else {
-    r.comentario = '';
-  }
+  const currentText = (r.comentario || '').trim();
 
   // Re-renderizar la UI para pintar el " | " y dar clases correctas
   render();
@@ -1859,6 +1933,7 @@ function startAddComment(rowId) {
   const tr = document.querySelector(`tr[data-id="${rowId}"]`);
   const tdComment = tr?.querySelector('.editable[data-field="comentario"]');
   if (!tdComment) return;
+  tdComment.textContent = currentText ? ' | ' + currentText.replace(/^[\s|]+/, '') : '';
 
   tdComment.focus();
 
@@ -2211,14 +2286,24 @@ document.addEventListener('contextmenu', (e) => {
 // Mantener el inicio del formulario alineado con Paste al redimensionar.
 function alignRegistrationWithPaste() {
   const content = document.querySelector('.content');
-  const paste = document.querySelector('#btnPaste');
-  if (!content || !paste) return;
-  const offset = Math.max(0, paste.getBoundingClientRect().left - content.getBoundingClientRect().left);
+  const layout = document.querySelector('#mainLayout');
+  const download = document.querySelector('#downloadCSV');
+  if (!content || !layout || !download) return;
+  const buttonStyle = getComputedStyle(download);
+  const anchor = download.getBoundingClientRect().left + parseFloat(buttonStyle.borderLeftWidth) + parseFloat(buttonStyle.paddingLeft);
+  const layoutStyle = getComputedStyle(layout);
+  const left = layout.getBoundingClientRect().left + parseFloat(layoutStyle.paddingLeft);
+  const gap = parseFloat(layoutStyle.columnGap) || 16;
+  layout.style.setProperty('--notes-column-width', Math.max(180, anchor - left - gap) + 'px');
+  const offset = Math.max(0, anchor - content.getBoundingClientRect().left);
   content.style.setProperty('--registration-offset', offset + 'px');
 }
 const registrationObserver = new ResizeObserver(alignRegistrationWithPaste);
 registrationObserver.observe(document.querySelector('.searchbar'));
 registrationObserver.observe(document.querySelector('.state-filters'));
+registrationObserver.observe(document.querySelector('#clearQ'));
+registrationObserver.observe(document.querySelector('header'));
+registrationObserver.observe(document.querySelector('.content'));
 window.addEventListener('resize', alignRegistrationWithPaste);
 document.fonts.ready.then(alignRegistrationWithPaste);
 alignRegistrationWithPaste();
@@ -2234,3 +2319,7 @@ const stickyHeightsObserver = new ResizeObserver(updateStickyHeights);
 stickyHeightsObserver.observe(document.querySelector('header'));
 stickyHeightsObserver.observe(document.querySelector('.searchbar'));
 updateStickyHeights();
+
+window.addEventListener('date-history-local-only', () => {
+  $('#historyStorageNotice').hidden = false;
+});
