@@ -2323,3 +2323,11 @@ updateStickyHeights();
 window.addEventListener('date-history-local-only', () => {
   $('#historyStorageNotice').hidden = false;
 });
+
+// Priorizar notas: los formularios se despliegan a demanda en móvil.
+const mobileLayout = window.matchMedia('(max-width: 768px)');
+function updateMobileForms() {
+  document.querySelector('.registration-panel').open = !mobileLayout.matches;
+}
+mobileLayout.addEventListener('change', updateMobileForms);
+updateMobileForms();
