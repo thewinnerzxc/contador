@@ -130,6 +130,11 @@
         <span class="searchbar-spacer" aria-hidden="true"></span>
         <button id="btnPaste" class="btn yellow" title="Pegar del portapapeles">Paste</button>
         <input id="q" type="text" aria-label="Buscar registros" placeholder="Buscar en tabla… (tipo, email, whatsapp, nickname, comentario)" />
+        <div class="search-tags" role="group" aria-label="Tags de búsqueda editables">
+          <span class="search-tag"><button class="btn" type="button" data-search-tag="0">Tag 1</button><button class="btn tag-edit" type="button" data-edit-tag="0" aria-label="Editar tag 1" title="Editar tag 1">✎</button></span>
+          <span class="search-tag"><button class="btn" type="button" data-search-tag="1">Tag 2</button><button class="btn tag-edit" type="button" data-edit-tag="1" aria-label="Editar tag 2" title="Editar tag 2">✎</button></span>
+          <span class="search-tag"><button class="btn" type="button" data-search-tag="2">Tag 3</button><button class="btn tag-edit" type="button" data-edit-tag="2" aria-label="Editar tag 3" title="Editar tag 3">✎</button></span>
+        </div>
         <div class="state-filters" role="group" aria-label="Filtrar registros">
           <button type="button" class="btn filter-btn" data-state="all" aria-pressed="true">Todos</button>
           <button type="button" class="btn filter-btn" data-state="pending" aria-pressed="false">Pendientes</button>
@@ -154,6 +159,13 @@
           </thead>
           <tbody id="tbody"></tbody>
         </table>
+      </div>
+      <div class="page-size-control">
+        <label for="pageSize">Filas por página</label>
+        <select id="pageSize" class="btn">
+          <option value="50">50</option><option value="100" selected>100</option>
+          <option value="200">200</option><option value="500">500</option>
+        </select>
       </div>
       <div id="pagination" class="pagination" style="display:none;"></div>
     </section>

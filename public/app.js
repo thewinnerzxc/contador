@@ -85,7 +85,11 @@ let lastPickedNickEl = null;  // último nickname resaltado en la tabla
 
 // -- Pagination & Sync vars --
 let currentPage = 1;
-const itemsPerPage = 50;
+let itemsPerPage = 100;
+try {
+  const savedSize = Number(localStorage.getItem('ms_page_size_v1'));
+  if ([50, 100, 200, 500].includes(savedSize)) itemsPerPage = savedSize;
+} catch { }
 let lastLocalInteractionTime = 0; // timestamp para evitar sobrescritura cloud
 const SYNC_GRACE_PERIOD = 5000;   // ms a esperar tras interacción local
 
@@ -379,7 +383,7 @@ function sanitizeRow(r, idx) {
   const out = {
     id: Number.isFinite(+r.id) ? +r.id : (idx + 1),
     fecha: String(r.fecha || ''),
-    fecha_historial: Array.isArray(r.fecha_historial) ? r.fecha_historial.filter(d => /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(d)) : [],
+    fecha_historial: normalizeDateHistory(r.fecha_historial),
     tipo: r.tipo && [TYPES[2], TYPES[3]].includes(r.tipo)
       ? r.tipo
       : (r.tipo || ''),
@@ -587,17 +591,36 @@ function formatCommentHTML(text) {
   return formattedParts.join(' | ');
 }
 
+function normalizeDateHistory(history) {
+  if (!Array.isArray(history)) return [];
+  const minutes = history
+    .filter(date => typeof date === 'string' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(?::\d{2})?$/.test(date))
+    .map(date => date.slice(0, 16));
+  return [...new Set(minutes)].sort();
+}
+
 function recordEditDate(row) {
   const history = Array.isArray(row.fecha_historial) ? row.fecha_historial : [];
-  row.fecha_historial = [...new Set([...history, row.fecha].filter(Boolean))];
+  row.fecha_historial = normalizeDateHistory([...history, row.fecha]);
   row.fecha = nowStr();
 }
 function showDateHistory(id) {
   const row = rows.find(r => r.id === id);
   if (!row) return;
-  const dates = [...new Set([...(row.fecha_historial || []), row.fecha])].sort().reverse();
+  const currentMinute = row.fecha.slice(0, 16);
+  const dates = normalizeDateHistory([...(row.fecha_historial || []), row.fecha]).reverse();
   $('#dateHistoryContact').textContent = row.email || row.whatsapp || row.nickname || 'Registro';
-  $('#dateHistoryList').innerHTML = dates.map((date, index) => '<li>' + formatDateHTML(date) + (index === 0 ? ' <span class="muted">(actual)</span>' : '') + '</li>').join('');
+  const days = new Map();
+  dates.forEach(date => {
+    const [day, time] = date.split(' ');
+    if (!days.has(day)) days.set(day, []);
+    days.get(day).push({ time, current: date === currentMinute });
+  });
+  $('#dateHistoryList').innerHTML = [...days].map(([day, entries]) => {
+    const [year, month, date] = day.split('-');
+    return '<li class="history-day"><strong>' + esc(date + '-' + month + '-' + year) + '</strong><ul>' +
+      entries.map(entry => '<li><time>' + esc(entry.time || '') + '</time>' + (entry.current ? ' <span class="muted">(actual)</span>' : '') + '</li>').join('') + '</ul></li>';
+  }).join('');
   $('#dlgDateHistory').showModal();
 }
 
@@ -1257,6 +1280,49 @@ $('#btnPaste')?.addEventListener('click', async () => {
 
 $('#clearQ').addEventListener('click', () => { q = ''; qInp.value = ''; currentPage = 1; render(); });
 
+// Tres accesos de búsqueda editables, guardados en este dispositivo.
+const SEARCH_TAGS_KEY = 'ms_search_tags_v1';
+let searchTags = ['', '', ''];
+try {
+  const saved = JSON.parse(localStorage.getItem(SEARCH_TAGS_KEY) || 'null');
+  if (Array.isArray(saved)) searchTags = searchTags.map((_, index) => typeof saved[index] === 'string' ? saved[index] : '');
+} catch { }
+function paintSearchTags() {
+  document.querySelectorAll('[data-search-tag]').forEach(button => {
+    const index = Number(button.dataset.searchTag);
+    button.textContent = searchTags[index] || 'Tag ' + (index + 1);
+    button.title = searchTags[index] ? 'Buscar: ' + searchTags[index] : 'Configurar búsqueda';
+  });
+}
+async function editSearchTag(index) {
+  const value = await showPrompt('Texto del tag de búsqueda (vacío para limpiar):', searchTags[index]);
+  if (value === null) return;
+  searchTags[index] = value.trim();
+  localStorage.setItem(SEARCH_TAGS_KEY, JSON.stringify(searchTags));
+  paintSearchTags();
+}
+document.querySelectorAll('[data-search-tag]').forEach(button => {
+  button.addEventListener('click', () => {
+    const index = Number(button.dataset.searchTag);
+    if (!searchTags[index]) { void editSearchTag(index); return; }
+    qInp.value = searchTags[index];
+    qInp.dispatchEvent(new Event('input'));
+  });
+});
+document.querySelectorAll('[data-edit-tag]').forEach(button => {
+  button.addEventListener('click', () => { void editSearchTag(Number(button.dataset.editTag)); });
+});
+paintSearchTags();
+$('#pageSize').value = String(itemsPerPage);
+$('#pageSize').addEventListener('change', event => {
+  const value = Number(event.target.value);
+  if (![50, 100, 200, 500].includes(value)) return;
+  itemsPerPage = value;
+  localStorage.setItem('ms_page_size_v1', String(value));
+  currentPage = 1;
+  render();
+});
+
 // Panel visible en cada inicio; conserva las notas al mostrar/ocultar.
 $('#toggleSidebar').addEventListener('click', () => {
   const collapsed = $('#mainLayout').classList.toggle('sidebar-collapsed');
@@ -1705,7 +1771,7 @@ async function reloadFromDb(note = 'sincronizado') {
       rows.forEach(localR => {
         const serverR = serverMap.get(localR.id);
         if (serverR) {
-          serverR.fecha_historial = [...new Set([...(serverR.fecha_historial || []), ...(localR.fecha_historial || [])])].sort();
+          serverR.fecha_historial = normalizeDateHistory([...serverR.fecha_historial, ...localR.fecha_historial]);
           if (!serverR.nickname && localR.nickname) {
             serverR.nickname = localR.nickname;
           }
